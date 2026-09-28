@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.local
+.DS_Store
+.idea/
+
+# Le monde du MJ contient tous les secrets de la campagne : il ne quitte jamais ton ordinateur.
+mj/*
+!mj/LISEZMOI.md

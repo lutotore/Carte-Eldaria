@@ -1,0 +1,27 @@
+{
+  "name": "eldaria-carte",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Carte des Cieux d'Eldaria : altitudes des îles et missions, avec une table de MJ locale.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "mj": "vite --open /#mj",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "publier": "node scripts/publier.js"
+  },
+  "dependencies": {
+    "@fontsource/alegreya-sans": "^5.3.0",
+    "@fontsource/ibm-plex-mono": "^5.3.0",
+    "@fontsource/im-fell-dw-pica": "^5.3.0",
+    "vue": "^3.5.43"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.9",
+    "vite": "^8.3.1",
+    "vitest": "^5.0.2"
+  }
+}

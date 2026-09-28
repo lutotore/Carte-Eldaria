@@ -1,0 +1,163 @@
+{
+  "acte": 1,
+  "session": "Session 1",
+  "brume": 1150,
+  "iles": [
+    {
+      "id": "aeronis",
+      "nom": "Aéronis",
+      "x": 500,
+      "y": 300,
+      "r": 38,
+      "statut": "descend",
+      "description": "Cité-capitale des navigateurs, cœur du commerce entre les îles. Siège du Conseil des Vents.",
+      "alt": 2409,
+      "historique": [
+        {
+          "s": "Relevé 3205",
+          "alt": 2410
+        },
+        {
+          "s": "Relevé 3206",
+          "alt": 2409
+        },
+        {
+          "s": "Session 1",
+          "alt": 2409
+        }
+      ]
+    },
+    {
+      "id": "havrebrise",
+      "nom": "Havrebrise",
+      "x": 380,
+      "y": 395,
+      "r": 18,
+      "statut": "descend",
+      "description": "Petite île-relais agricole, moulins et port suspendu. Bureau local de la Compagnie de l'Horizon.",
+      "alt": 1629,
+      "historique": [
+        {
+          "s": "Relevé 3205",
+          "alt": 1630
+        },
+        {
+          "s": "Relevé 3206",
+          "alt": 1630
+        },
+        {
+          "s": "Session 1",
+          "alt": 1629
+        }
+      ]
+    },
+    {
+      "id": "cendrebas",
+      "nom": "Cendrebas",
+      "x": 265,
+      "y": 478,
+      "r": 20,
+      "statut": "descend",
+      "description": "Île minière de basse altitude, exploitée par la Compagnie des Carènes.",
+      "alt": 1200,
+      "historique": [
+        {
+          "s": "Relevé 3205",
+          "alt": 1241
+        },
+        {
+          "s": "Relevé 3206",
+          "alt": 1240
+        },
+        {
+          "s": "Session 1",
+          "alt": 1200
+        }
+      ]
+    },
+    {
+      "id": "vandrel",
+      "nom": "Vandrel",
+      "x": 705,
+      "y": 170,
+      "r": 28,
+      "statut": "descend",
+      "description": "Bastion militaire suspendu, première ligne contre les monstres aériens.",
+      "alt": 2105,
+      "historique": [
+        {
+          "s": "Relevé 3205",
+          "alt": 2105
+        },
+        {
+          "s": "Relevé 3206",
+          "alt": 2106
+        },
+        {
+          "s": "Session 1",
+          "alt": 2105
+        }
+      ]
+    },
+    {
+      "id": "ifra",
+      "nom": "Archipel d'Ifra",
+      "x": 830,
+      "y": 410,
+      "r": 30,
+      "statut": "instable",
+      "description": "Archipel chaotique où la gravité semble folle. Ruines d'avant l'Exil. Accès interdit par la Garde.",
+      "alt": null,
+      "historique": []
+    },
+    {
+      "id": "nua",
+      "nom": "Jardins de Nua",
+      "x": 175,
+      "y": 215,
+      "r": 32,
+      "statut": "stable",
+      "description": "Îles luxuriantes des druides, derniers vestiges de la faune originelle.",
+      "alt": 2300,
+      "historique": [
+        {
+          "s": "Session 1",
+          "alt": 2300
+        }
+      ]
+    },
+    {
+      "id": "skarn",
+      "nom": "Skarn",
+      "x": 625,
+      "y": 478,
+      "r": 26,
+      "statut": "stable",
+      "description": "Île artificielle consacrée à la construction des navires volants.",
+      "alt": 1750,
+      "historique": [
+        {
+          "s": "Session 1",
+          "alt": 1750
+        }
+      ]
+    }
+  ],
+  "missions": [
+    {
+      "id": "a1-mesure",
+      "titre": "L'Erreur de Mesure",
+      "ile": "havrebrise",
+      "type": "principale",
+      "statut": "disponible",
+      "accroche": "La Compagnie de l'Horizon recrute. Le cartographe Brisemont cherche des volontaires pour vérifier un relevé."
+    }
+  ],
+  "nouvelles": [
+    {
+      "t": "Session 1",
+      "titre": "La Compagnie de l'Horizon recrute",
+      "texte": "Épreuves d'entrée au relais de Havrebrise. Présentez-vous tôt."
+    }
+  ]
+}
