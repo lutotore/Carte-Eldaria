@@ -28,121 +28,159 @@ const nomsIles = computed(() => ({
 }))
 const ileChoisie = computed(() => props.monde.iles.find((i) => i.id === selection.value) ?? null)
 const missionsIle = computed(() => props.monde.missions.filter((m) => m.ile === selection.value))
+
+const etiquettes = computed(() => [
+  { nom: 'Acte', valeur: NOMS_ACTE[props.monde.acte - 1] },
+  { nom: 'Relevé', valeur: props.monde.session },
+  { nom: 'Mer de brume', valeur: formaterAltitude(props.monde.brume), cote: true },
+])
 </script>
 
 <template>
-  <div class="atlas">
-    <header class="cartouche">
-      <div class="titre">
-        <p class="petites-capitales">Compagnie de l'Horizon · Service des relevés</p>
+  <div class="bureau">
+    <header class="entete">
+      <div class="plaque laiton">
+        <p class="petites-capitales">Journal de bord du Sillage</p>
         <h1>Carte des Cieux d'Eldaria</h1>
-        <p class="sous-titre">Dressée d'après les relevés d'A. Brisemont<span v-if="mentionMj"> · ce que voient les joueurs</span></p>
+        <p class="sous-titre">
+          Relevés de la Compagnie de l'Horizon, d'après A. Brisemont<span v-if="mentionMj"> — tel que le voient les joueurs</span>
+        </p>
       </div>
-      <dl class="releve">
-        <div><dt>Acte</dt><dd>{{ NOMS_ACTE[monde.acte - 1] }}</dd></div>
-        <div><dt>Relevé</dt><dd>{{ monde.session }}</dd></div>
-        <div><dt>Mer de brume</dt><dd class="cote">{{ formaterAltitude(monde.brume) }}</dd></div>
-      </dl>
+      <ul class="etiquettes" aria-label="Relevé en cours">
+        <li v-for="e in etiquettes" :key="e.nom" class="etiquette papier">
+          <span class="petites-capitales">{{ e.nom }}</span>
+          <span class="valeur" :class="{ cote: e.cote }">{{ e.valeur }}</span>
+        </li>
+      </ul>
     </header>
 
-    <div class="corps">
-      <section class="planche-cadre" aria-label="Planche">
-        <div class="onglets" role="tablist" aria-label="Type de planche">
-          <button type="button" role="tab" :aria-selected="vue === 'elevation'" @click="vue = 'elevation'">Élévation</button>
-          <button type="button" role="tab" :aria-selected="vue === 'plan'" @click="vue = 'plan'">Plan</button>
+    <div class="table-de-travail">
+      <section class="planche papier epingle" aria-label="Planche des îles">
+        <div class="rubans" role="tablist" aria-label="Type de planche">
+          <button type="button" role="tab" class="ruban" :aria-selected="vue === 'elevation'" @click="vue = 'elevation'">Élévation</button>
+          <button type="button" role="tab" class="ruban ruban--vert" :aria-selected="vue === 'plan'" @click="vue = 'plan'">Plan</button>
         </div>
         <div class="defilement">
           <VueElevation v-if="vue === 'elevation'" :iles="monde.iles" :brume="monde.brume" :selection="selection" @choisir="choisir" />
           <VuePlan v-else :iles="monde.iles" :selection="selection" @choisir="choisir" />
         </div>
         <p class="legende">
-          <span><i class="marque marque--descend" />Descend</span>
-          <span><i class="marque marque--instable" />Instable</span>
-          <span><i class="marque marque--tombee" />Engloutie</span>
-          <span class="note">{{ vue === 'elevation' ? 'Hauteurs à l’échelle ; espacement des îles libre.' : 'Positions approximatives.' }}</span>
+          <span><i class="signe signe--descend" />descend</span>
+          <span><i class="signe signe--instable" />instable</span>
+          <span><i class="signe signe--tombee" />engloutie</span>
+          <span class="note">{{ vue === 'elevation' ? 'Hauteurs à l’échelle, espacement libre.' : 'Positions relevées à l’estime.' }}</span>
         </p>
       </section>
 
-      <aside class="colonne">
-        <FicheReleve :ile="ileChoisie" :missions="missionsIle" :noms-iles="nomsIles" />
-        <OrdresDeMission :missions="monde.missions" :noms-iles="nomsIles" />
-        <Gazette :nouvelles="monde.nouvelles" />
-      </aside>
+      <FicheReleve class="carnet" :ile="ileChoisie" :missions="missionsIle" :noms-iles="nomsIles" />
+    </div>
+
+    <div class="bas">
+      <OrdresDeMission :missions="monde.missions" :noms-iles="nomsIles" />
+      <Gazette :nouvelles="monde.nouvelles" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.atlas {
-  max-width: 1280px;
+.bureau {
+  max-width: 1320px;
   margin: 0 auto;
   padding-inline: max(16px, env(safe-area-inset-left));
-  padding-block: 1.25rem 2.5rem;
+  padding-block: 1.5rem 3rem;
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 2rem;
 }
 
-.cartouche {
+/* En-tête : plaque de laiton et étiquettes de relevé. */
+.entete { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem 2rem; }
+.plaque { padding: 0.9rem 1.6rem 1rem; border-radius: 6px; position: relative; max-width: 100%; }
+.plaque::before, .plaque::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 9px;
+  height: 9px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f5dfa6, #7a5522);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+.plaque::before { left: 0.6rem; }
+.plaque::after { right: 0.6rem; }
+.plaque .petites-capitales { margin: 0; color: #5a3d16; }
+h1 { font-size: clamp(1.9rem, 4.4vw, 3.1rem); line-height: 1.05; color: #2a1a0c; text-shadow: 0 1px 0 rgba(255, 240, 200, 0.6); }
+.sous-titre { margin: 0.15rem 0 0; font-style: italic; color: #4a3317; }
+
+.etiquettes { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.9rem; }
+.etiquette {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem 2rem;
-  border: 1px solid var(--encre);
-  outline: 1px solid var(--encre);
-  outline-offset: 3px;
-  padding: 1rem 1.25rem;
-  margin: 4px;
+  flex-direction: column;
+  padding: 0.5rem 0.9rem 0.55rem 1.6rem;
+  border-radius: 2px 10px 10px 2px;
+  clip-path: polygon(14px 0, 100% 0, 100% 100%, 14px 100%, 0 50%);
+  min-width: 7.5rem;
 }
-h1 { font-size: clamp(1.9rem, 4.2vw, 3rem); line-height: 1.05; }
-.sous-titre { margin: 0.2rem 0 0; font-style: italic; color: var(--encre-2); }
-.releve { display: flex; flex-wrap: wrap; gap: 0 1.75rem; margin: 0; }
-.releve dt { font-size: var(--t-xs); letter-spacing: 0.14em; text-transform: uppercase; font-weight: 700; color: var(--encre-2); }
-.releve dd { margin: 0; font-size: 1.15rem; }
-
-.corps { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.5rem; align-items: start; }
-@media (max-width: 960px) { .corps { grid-template-columns: minmax(0, 1fr); } }
-
-.planche-cadre {
-  min-width: 0;
-  border: 1px solid var(--encre);
-  background-color: var(--papier);
-  background-image:
-    linear-gradient(var(--papier-2) 1px, transparent 1px),
-    linear-gradient(90deg, var(--papier-2) 1px, transparent 1px);
-  background-size: 24px 24px;
+.etiquette:nth-child(2) { transform: rotate(1.5deg); }
+.etiquette:nth-child(3) { transform: rotate(-1deg); }
+.etiquette::before {
+  content: '';
+  position: absolute;
+  left: 9px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -3.5px;
+  border-radius: 50%;
+  background: var(--cuir);
 }
-/* Sur téléphone, la planche garde une taille lisible et défile horizontalement. */
+.etiquette .petites-capitales { color: var(--encre-2); }
+.etiquette .valeur { font-size: 1.2rem; color: var(--encre); }
+
+/* Table de travail : la planche épinglée et le carnet. */
+.table-de-travail { display: grid; grid-template-columns: minmax(0, 1fr) 23rem; gap: 2rem; align-items: start; }
+@media (max-width: 1000px) { .table-de-travail { grid-template-columns: minmax(0, 1fr); } }
+
+.planche { padding: 2rem 1.1rem 0.4rem; transform: rotate(-0.25deg); min-width: 0; }
 .defilement { overflow-x: auto; }
 .defilement > :deep(svg) { min-width: 720px; }
-.onglets { display: flex; border-bottom: 1px solid var(--encre); background: var(--papier); }
-.onglets button {
-  background: none;
+
+.rubans { position: absolute; top: -6px; right: 3.2rem; display: flex; gap: 0.5rem; z-index: 3; }
+.ruban {
   border: 0;
-  border-right: 1px solid var(--trait);
-  padding: 0.5rem 1.1rem;
+  padding: 0.6rem 0.8rem 1.1rem;
   font-family: var(--f-titre);
-  font-size: 1.05rem;
-  color: var(--encre-2);
+  font-size: 1rem;
+  color: #f4e6c8;
+  background: linear-gradient(90deg, #5e1822, var(--ruban) 30%, #8e3040 60%, var(--ruban));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+  opacity: 0.75;
+  transition: padding 0.2s ease, opacity 0.2s ease;
 }
-.onglets button[aria-selected='true'] { color: var(--encre); background: var(--papier-2); box-shadow: inset 0 -2px 0 var(--encre); }
+.ruban--vert { background: linear-gradient(90deg, #1e3a2d, var(--ruban-2) 30%, #3c6b55 60%, var(--ruban-2)); }
+.ruban[aria-selected='true'] { padding-bottom: 1.8rem; opacity: 1; }
+.ruban:focus-visible { outline-color: var(--laiton-clair); }
+
 .legende {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.2rem;
+  gap: 0.3rem 1.2rem;
   margin: 0;
-  padding: 0.55rem 0.9rem;
-  border-top: 1px solid var(--encre);
-  background: var(--papier);
-  font-size: var(--t-s);
+  padding: 0.4rem 0.6rem 0.8rem;
+  font-family: var(--f-titre);
+  font-style: italic;
+  color: var(--encre-2);
 }
-.note { font-style: italic; color: var(--encre-2); margin-left: auto; }
-.marque { display: inline-block; width: 1.1rem; height: 0; margin-right: 0.4rem; vertical-align: middle; border-top: 2px solid; }
-.marque--descend { border-color: var(--ambre); border-top-style: dashed; }
-.marque--instable { border-color: var(--encre); border-top-style: dotted; }
-.marque--tombee { border-color: var(--rouge); border-top-style: dashed; }
+.note { margin-left: auto; }
+.signe { display: inline-block; width: 1.3rem; height: 0; margin-right: 0.4rem; vertical-align: middle; border-top: 2px dashed; }
+.signe--descend { border-color: var(--ocre-alerte); }
+.signe--instable { border-color: var(--cristal); border-top-style: dotted; }
+.signe--tombee { border-color: var(--rouge); }
 
-.colonne { display: flex; flex-direction: column; gap: 1.75rem; min-width: 0; }
-.colonne > :deep(section) { padding-top: 0.25rem; }
+.carnet { transform: rotate(0.6deg); }
+
+.bas { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; gap: 2rem; align-items: start; }
+@media (max-width: 1000px) { .bas { grid-template-columns: minmax(0, 1fr); } }
 </style>

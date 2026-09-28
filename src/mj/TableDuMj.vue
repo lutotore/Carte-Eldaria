@@ -109,7 +109,7 @@ const classerAlerte = (index) => agir((e) => retirerAlerte(e, index))
       </div>
       <p class="mj-statut" aria-live="polite">{{ statut }}<span v-if="message" class="mj-erreur"> {{ message }}</span></p>
 
-      <div v-if="etat.alertes?.length" class="alertes" role="status">
+      <div v-if="etat.alertes?.length" class="alertes papier" role="status">
         <div v-for="(a, i) in etat.alertes" :key="`${a.titre}-${i}`" class="alerte">
           <div><strong>{{ a.titre }}</strong><span>{{ a.mj }}</span></div>
           <div class="actions">
@@ -119,10 +119,12 @@ const classerAlerte = (index) => agir((e) => retirerAlerte(e, index))
         </div>
       </div>
 
-      <div class="mj-onglets" role="tablist" aria-label="Sections de la table du MJ">
-        <button v-for="o in ONGLETS" :key="o.cle" type="button" role="tab" :aria-selected="onglet === o.cle" @click="onglet = o.cle">{{ o.nom }}</button>
+      <div class="pupitre papier">
+        <div class="mj-onglets" role="tablist" aria-label="Sections de la table du MJ">
+          <button v-for="o in ONGLETS" :key="o.cle" type="button" role="tab" :aria-selected="onglet === o.cle" @click="onglet = o.cle">{{ o.nom }}</button>
+        </div>
+        <component :is="panneau" :etat="etat" @agir="agir" />
       </div>
-      <component :is="panneau" :etat="etat" @agir="agir" />
     </section>
   </template>
 

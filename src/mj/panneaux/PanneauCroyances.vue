@@ -60,9 +60,9 @@ function noter(lecture) {
 <style scoped>
 .barres { display: flex; flex-direction: column; gap: 0.6rem; max-width: 44rem; }
 .barre { display: grid; grid-template-columns: 9rem minmax(0, 1fr) 2rem auto; gap: 0.75rem; align-items: center; }
-.jauge { height: 0.6rem; border: 1px solid var(--encre); }
-.rempli { display: block; height: 100%; background: var(--encre); }
-.formulaire { border: 1px solid var(--trait); padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; max-width: 44rem; }
+.jauge { height: 0.7rem; border: 1px solid var(--encre); border-radius: 2px; background: rgba(255, 250, 235, 0.5); }
+.rempli { display: block; height: 100%; background: var(--rouge); }
+.formulaire { border: 1px solid rgba(45, 31, 21, 0.3); padding: 0.75rem 1rem; display: flex; flex-direction: column; gap: 0.6rem; max-width: 44rem; }
 legend { font-family: var(--f-titre); font-size: 1.1rem; padding: 0 0.3rem; }
 .choix { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 </style>

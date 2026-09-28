@@ -20,6 +20,6 @@ defineProps({ etat: { type: Object, required: true } })
 .journal li { display: grid; grid-template-columns: 7rem minmax(0, 1fr) 2.5rem; gap: 0.75rem; padding: 0.35rem 0; border-bottom: 1px dotted var(--trait); }
 .quand { color: var(--encre-2); font-style: italic; }
 .delta { text-align: right; }
-.hausse { color: var(--ambre); }
+.hausse { color: var(--ocre-alerte); }
 .baisse { color: var(--vert); }
 </style>

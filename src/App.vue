@@ -32,5 +32,5 @@ onMounted(async () => {
 
 <style scoped>
 .attente { max-width: 40rem; margin: 20vh auto 0; padding-inline: 16px; text-align: center; }
-.attente p { color: var(--encre-2); }
+.attente p { color: var(--laiton-clair); }
 </style>
