@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+node_modules
+api/node_modules
+dist
+mj
+donnees
+**/.env
+tests
+api/tests
+*.md
+api/donnees-dev

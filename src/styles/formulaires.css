@@ -1,0 +1,63 @@
+/* Champs, boutons et feuilles de formulaire, partagés par tout le portail. */
+.champ { display: flex; flex-direction: column; gap: 0.2rem; font-size: var(--t-s); color: var(--encre-2); min-width: 0; }
+
+.champ input, .champ select, .champ textarea,
+.mj input[type='text'], .mj select, .mj textarea {
+  border: 1px solid var(--papier-ombre);
+  border-radius: 3px;
+  background: #f6ecd4;
+  padding: 0.35rem 0.55rem;
+  min-width: 0;
+  color: var(--encre);
+}
+.feuille .champ input, .feuille .champ select { font-size: 1rem; padding: 0.55rem 0.7rem; }
+.champ textarea, .mj textarea { min-height: 5rem; resize: vertical; }
+.champ input:focus-visible, .champ select:focus-visible { outline: 2px solid var(--rouge); outline-offset: 1px; }
+
+.bouton {
+  border: 1px solid var(--laiton-sombre);
+  border-radius: 4px;
+  padding: 0.35rem 0.85rem;
+  font-size: var(--t-s);
+  color: #2a1a0c;
+  text-decoration: none;
+  display: inline-block;
+  background: linear-gradient(160deg, var(--laiton-clair), var(--laiton) 55%, #9c7130);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 2px 3px rgba(0, 0, 0, 0.3);
+}
+.bouton:hover { filter: brightness(1.07); }
+.bouton--plein { background: linear-gradient(160deg, #a33b2f, var(--rouge) 60%); color: #f6e7cf; border-color: #5e1a14; }
+.bouton--rouge { background: #f6ecd4; color: var(--rouge); border-color: var(--rouge); box-shadow: none; }
+.bouton--grand { font-size: 1rem; padding: 0.6rem 1.2rem; }
+.bouton:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+
+/* Une feuille épinglée au centre du bureau : connexion, invitation, compte… */
+.page-feuille { padding: 2.5rem 16px 3rem; display: flex; justify-content: center; }
+.feuille { width: 100%; max-width: 30rem; padding: 2.4rem 2rem 2rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.feuille--large { max-width: 56rem; }
+.feuille h1 { font-size: 2rem; color: var(--encre); line-height: 1.1; }
+.feuille h2 { font-size: 1.35rem; color: var(--encre); margin-top: 0.6rem; }
+.feuille p { margin: 0; }
+.feuille form { display: flex; flex-direction: column; gap: 0.9rem; }
+.feuille .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.feuille a { color: var(--ruban); }
+.chapeau { color: var(--encre-2); font-style: italic; }
+.surtitre { color: var(--encre-2); margin: 0; }
+
+.message { margin: 0; padding: 0.6rem 0.8rem; border-left: 3px solid; font-size: var(--t-s); }
+.message--erreur { color: var(--rouge); border-color: var(--rouge); background: rgba(150, 44, 34, 0.07); }
+.message--ok { color: var(--vert); border-color: var(--vert); background: rgba(60, 94, 56, 0.08); }
+
+.separateur { border: 0; border-top: 1px dashed var(--papier-ombre); margin: 0.6rem 0; width: 100%; }
+
+/* Texte d'une page juridique : lisible avant tout. */
+.texte-juridique { line-height: 1.6; }
+.texte-juridique h2 { margin-top: 1.2rem; }
+.texte-juridique ul { margin: 0; padding-left: 1.2rem; }
+.texte-juridique li + li { margin-top: 0.3rem; }
+.a-completer { background: rgba(154, 87, 23, 0.18); padding: 0 0.25rem; border-radius: 2px; }
+
+@media (max-width: 520px) {
+  .page-feuille { padding: 1.5rem 10px 2rem; }
+  .feuille { padding: 2rem 1.1rem 1.5rem; }
+}

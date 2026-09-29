@@ -31,4 +31,14 @@ describe('versPublic', () => {
   it('calcule le niveau de la brume', () => {
     expect(publique.brume).toBe(1150)
   })
+
+  it("ne nomme pas l'île d'une mission tant que l'île n'est pas révélée", () => {
+    const monde = unMonde()
+    monde.missions.cachee.statut = 'disponible'
+    monde.missions.infronde = { titre: 'En bas', ile: 'infronde', type: 'expedition', statut: 'disponible', teaser: 'Descendre.' }
+    const missions = versPublic(monde).missions
+    expect(missions.find((m) => m.id === 'cachee').ile).toBeNull()
+    expect(missions.find((m) => m.id === 'infronde').ile).toBe('infronde')
+    expect(missions.find((m) => m.id === 'principale').ile).toBe('basse')
+  })
 })

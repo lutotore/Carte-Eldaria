@@ -1,0 +1,38 @@
+# Caddy : la seule porte d'entrée du serveur.
+# - obtient et renouvelle tout seul le certificat HTTPS pour {$DOMAINE} ;
+# - envoie /api/... au conteneur de l'API (réseau interne de Docker, jamais exposé) ;
+# - sert le site Vue compilé pour tout le reste.
+
+{$DOMAINE} {
+	encode zstd gzip
+
+	header {
+		# Le navigateur n'acceptera plus que du HTTPS pour ce domaine pendant un an.
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), interest-cohort=()"
+		# Rien ne se charge depuis un autre site : ni script, ni police, ni image, ni pisteur.
+		Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv
+
+		# Les fichiers de /assets portent une empreinte dans leur nom : on peut les garder un an.
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@pages not path /assets/*
+		header @pages Cache-Control "no-cache"
+
+		# Adresses du routeur Vue (/campagne/1, /invitation/…) : on renvoie index.html.
+		try_files {path} /index.html
+		file_server
+	}
+}

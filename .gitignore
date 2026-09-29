@@ -7,3 +7,7 @@ dist/
 # Le monde du MJ contient tous les secrets de la campagne : il ne quitte jamais ton ordinateur.
 mj/*
 !mj/LISEZMOI.md
+
+# Sur le serveur : réglages et base de données, jamais dans le dépôt.
+.env
+donnees/

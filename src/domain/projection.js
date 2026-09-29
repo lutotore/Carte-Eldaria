@@ -1,5 +1,10 @@
 import { niveauBrume } from './brume.js'
 
+function lieuVisible(etat, ile) {
+  if (ile === 'infronde') return ile
+  return etat.iles[ile]?.revelee ? ile : null
+}
+
 /**
  * Ce que les joueurs ont le droit de voir.
  * Tout le reste (Horloge, croyances, notes, îles et missions cachées)
@@ -22,7 +27,8 @@ export function versPublic(etat) {
 
   const missions = Object.entries(etat.missions)
     .filter(([, m]) => m.statut !== 'cachee')
-    .map(([id, m]) => ({ id, titre: m.titre, ile: m.ile, type: m.type, statut: m.statut, accroche: m.teaser ?? '' }))
+    // Le lieu d'une mission n'est nommé que si l'île est déjà révélée (ou si c'est l'Infronde).
+    .map(([id, m]) => ({ id, titre: m.titre, ile: lieuVisible(etat, m.ile), type: m.type, statut: m.statut, accroche: m.teaser ?? '' }))
 
   return {
     acte: etat.acte,

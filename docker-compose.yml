@@ -1,0 +1,52 @@
+# Portail d'Eldaria : deux conteneurs.
+#   web : Caddy, le site compilé et le HTTPS (seul à ouvrir des ports sur Internet)
+#   api : Node + SQLite, joignable uniquement par Caddy
+# Réglages dans le fichier .env (voir .env.exemple).
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAINE: ${DOMAINE:?Renseigne DOMAINE dans le fichier .env}
+    volumes:
+      # Certificats HTTPS : conservés entre deux redémarrages.
+      - caddy_donnees:/data
+      - caddy_config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    build:
+      context: .
+      dockerfile: api/Dockerfile
+    restart: unless-stopped
+    # Aucun « ports: » ici, volontairement : Docker contournerait le pare-feu.
+    environment:
+      ORIGINE: https://${DOMAINE}
+      BASE: /donnees/eldaria.db
+    volumes:
+      # La base SQLite vit sur le disque du serveur : c'est ce dossier qu'on sauvegarde.
+      - ./donnees:/donnees
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/sante').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  caddy_donnees:
+  caddy_config:
+
+networks:
+  default:
+    # IPv6 dans le réseau Docker : l'API voit la vraie adresse des visiteurs en IPv6,
+    # et la limite de tentatives de connexion s'applique à chacun séparément.
+    enable_ipv6: true

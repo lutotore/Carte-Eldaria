@@ -1,75 +1,105 @@
-# Carte des Cieux d'Eldaria
+# Portail d'Eldaria
 
-Carte des îles de la campagne *Eldaria — Le Sommeil de l'Abîme* : altitude des îles relevées,
-niveau de la mer de brume, ordres de mission et Gazette des Vents.
+Portail de la campagne *Eldaria — Le Sommeil de l'Abîme* : carte des îles en temps réel, table du MJ,
+comptes des joueurs sur invitation. Tout est privé : il faut un compte pour voir quoi que ce soit.
 
-- **Les joueurs** consultent le site publié sur GitHub Pages.
-- **Le MJ** pilote la campagne depuis une table locale qui n'est jamais publiée.
+| Rôle | Ce qu'il voit et fait |
+|---|---|
+| **MJ principal** (propriétaire) | Tout, plus la gestion des membres : invitations, liens de mot de passe, retraits |
+| **MJ** | Toute la vérité de la campagne et la table du MJ |
+| **Joueur**, **joueur occasionnel** | La carte : îles révélées, missions ouvertes, nouvelles publiées |
 
-## Comment ça marche
+Le déploiement sur le VPS est décrit pas à pas dans [DEPLOIEMENT.md](DEPLOIEMENT.md).
+
+## Architecture
 
 ```
-mj/etat.json  ──(table du MJ, en local)──►  public/monde.json  ──(git push)──►  GitHub Pages
-  secrets du MJ                               ce que voient les joueurs            site des joueurs
+navigateur ──HTTPS──► Caddy ──┬── /api/*  ──► API Node (Fastify) ──► SQLite (donnees/eldaria.db)
+                              └── le reste ──► site Vue compilé
 ```
 
-`mj/etat.json` contient tout : Horloge d'Éveil, croyances, îles et missions cachées, notes.
-Il est ignoré par Git. À chaque action, la table du MJ en tire `public/monde.json`, qui ne contient
-que les îles révélées, les missions ouvertes et les nouvelles publiées (voir `src/domain/projection.js`).
+- **`src/`** : le site Vue.
+  - `src/domain/` : les règles du monde (Horloge, altitudes, brume, missions) en fonctions pures.
+    **L'API réutilise le même code**, notamment `projection.js`, qui décide de ce qu'un joueur a le droit de voir.
+  - `src/pages/` : une page par écran (connexion, invitation, carte, membres, compte, pages légales).
+  - `src/mj/` : la table du MJ.
+  - `src/api/client.js` : le seul endroit qui parle à l'API.
+- **`api/`** : l'API.
+  - `api/src/domaine/` : règles du portail (rôles, liens à usage unique, identifiants), fonctions pures.
+  - `api/src/services/portail.js` : les cas d'usage. **C'est ici que les droits sont vérifiés.**
+  - `api/src/infra/` : SQLite (`node:sqlite`, inclus dans Node) et les migrations.
+  - `api/src/http/` : traduction HTTP ↔ cas d'usage, cookies, protection CSRF, limitation des tentatives.
+  - `api/src/cli.js` : commandes d'administration à lancer sur le serveur.
 
-## Installation
+### Pourquoi les secrets du MJ ne peuvent pas fuiter
 
-Prérequis : Node.js 22.
+Le site compilé ne contient **aucune donnée** : tout vient de l'API, après connexion.
+L'API ne renvoie l'état complet qu'aux MJ ; les joueurs reçoivent `versPublic(etat)`.
+Un test de l'API le vérifie à chaque exécution (`api/tests/services/monde.test.js`).
+
+### Sécurité en bref
+
+- Mots de passe hachés avec scrypt, jamais stockés ni journalisés.
+- Session dans un cookie `__Host-`, `HttpOnly`, `Secure`, `SameSite=Lax` ; la base ne garde que l'empreinte du jeton.
+- Toute modification doit venir du portail lui-même (en-tête `Origin` vérifié) et être envoyée en JSON.
+- 10 tentatives de connexion par quart d'heure et par adresse IP.
+- Les journaux ne contiennent ni adresse IP ni jeton.
+- En-têtes de sécurité et politique de contenu stricte posés par Caddy (`Caddyfile`).
+
+## Développer sur ton PC
+
+Prérequis : Node.js 22.13 ou plus récent.
 
 ```bash
 npm install
-cp /chemin/vers/etat.json mj/etat.json   # le fichier de départ fourni à part
+npm install --prefix api
 ```
 
-## En session
+Première fois seulement, pour l'API :
 
 ```bash
-npm run mj
+cd api
+cp .env.exemple .env                        # sous Windows : copy .env.exemple .env
+npm run cli -- initialiser "Eldaria (dev)"  # affiche un lien d'invitation de propriétaire
+npm run cli -- importer-etat 1 ../mj/etat.json
 ```
 
-Le navigateur s'ouvre sur la table du MJ : la carte telle que les joueurs la verront, puis tes outils.
-
-- **Horloge d'Éveil** : chaque événement la fait avancer ou reculer ; les altitudes, la brume et les chutes
-  d'îles sont recalculées, et les seuils franchis apparaissent en alerte avec une nouvelle prête à publier.
-- **Croyances** : note chaque indice et la lecture vers laquelle le groupe penche.
-- **Factions et personnages** : réputations (−3 à +3) et Marques du Rêve (0 à 5).
-- **Îles** : révéler, rendre l'altitude connue, régler la vitesse de descente, faire tomber une île.
-- **Missions** : ouvrir, suivre, accomplir. Accomplir une expédition coûte +1 à l'Horloge.
-- **Annuler la dernière action** en cas d'erreur.
-
-## Après la session
+Puis, dans deux terminaux :
 
 ```bash
-npm run publier
+npm run dev:api   # l'API sur http://localhost:3000
+npm run dev       # le site sur http://localhost:5173 (il transmet /api à l'API)
 ```
 
-Le script versionne `public/monde.json` avec le nom de la session et pousse. GitHub Actions teste,
-construit et déploie ; la carte des joueurs est à jour une à deux minutes plus tard.
+Ouvre le lien affiché par `initialiser` pour créer ton compte. La base de développement vit dans
+`api/donnees-dev/`, ignorée par Git : supprime ce dossier pour repartir de zéro.
 
-## Première mise en ligne
-
-1. Crée un dépôt GitHub (public : GitHub Pages gratuit ne sert que les dépôts publics, et rien de secret n'y entre).
-2. Pousse ce projet sur la branche `main`.
-3. Dans **Settings → Pages**, choisis **Source : GitHub Actions**.
-4. La carte est servie à `https://<ton-compte>.github.io/<nom-du-depot>/`.
-
-## Développement
+## Tests
 
 ```bash
-npm test          # tests du modèle du monde (Vitest)
-npm run dev       # la carte des joueurs seule, avec public/monde.json
-npm run build     # le site publié, dans dist/
+npm test            # tout : site (Vitest) puis API
+npm run test:web    # le site seul
+npm test --prefix api
 ```
 
-- `src/domain/` : le modèle du monde, en fonctions pures et testées (Horloge, altitudes, brume, missions, projection publique).
-- `src/components/` : la carte des joueurs (élévation, plan, fiche de relevé, ordres, gazette).
-- `src/mj/` : la table du MJ, chargée uniquement en développement et absente du site publié.
-- `scripts/vite-plugin-mj.js` : le petit serveur local qui lit et écrit `mj/etat.json`.
+Le code est écrit en TDD : chaque règle a d'abord été décrite par un test. Les tests de l'API
+se lisent comme le cahier des charges : `api/tests/services/comptes.test.js` suit les stories 1 à 6,
+`monde.test.js` les stories 7 et 8, `rgpd.test.js` les droits sur son compte.
 
-Les règles propres à la campagne (seuils, événements, lectures, factions) vivent dans `mj/etat.json`, pas
-dans le code : le dépôt public ne révèle rien de l'intrigue.
+## Données personnelles
+
+- Pages **Mentions légales** et **Confidentialité et cookies** : `src/pages/`.
+  Tes coordonnées d'éditeur se renseignent dans `src/legal.js` (en surbrillance tant qu'elles manquent).
+- Un seul cookie (session, strictement nécessaire) et une préférence d'affichage en stockage local :
+  aucun bandeau de consentement n'est requis. **Si tu ajoutes un jour une mesure d'audience ou un
+  contenu externe (vidéo, police Google…), ce ne sera plus vrai** : il faudra un bandeau.
+- Chaque utilisateur peut télécharger ses données et supprimer son compte depuis **Mon compte**.
+- Les durées de conservation annoncées dans `src/legal.js` doivent rester alignées sur l'API
+  (`DUREES_JOURS` dans `api/src/services/portail.js`) et sur la rétention des sauvegardes.
+
+## Limites connues
+
+- Si deux MJ modifient la table du MJ **en même temps**, le dernier enregistrement l'emporte.
+  À traiter avant que le co-MJ ne prépare en parallèle (verrou optimiste : version de l'état vérifiée à l'écriture).
+- Les joueurs voient les changements en rechargeant la carte, ou en revenant sur l'onglet.
+  Le temps réel (SSE) viendra avec un lot suivant.

@@ -1,10 +1,13 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { tableDuMj } from './scripts/vite-plugin-mj.js'
 
-// base relative : le site fonctionne sous https://<compte>.github.io/<depot>/
+// En local, l'API tourne à part (npm run dev:api) : Vite lui transmet tout ce qui commence par /api.
+const versApi = { '/api': { target: 'http://localhost:3000' } }
+
 export default defineConfig({
-  base: './',
-  plugins: [vue(), tableDuMj()],
+  base: '/',
+  plugins: [vue()],
+  server: { proxy: versApi },
+  preview: { proxy: versApi },
   test: { include: ['tests/**/*.test.js'] },
 })

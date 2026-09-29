@@ -1,5 +1,6 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
+import { api } from '../api/client.js'
 import Atlas from '../components/Atlas.vue'
 import { changerActe, changerSession, publierNouvelle, retirerAlerte, versPublic } from '../domain/index.js'
 import { NOMS_ACTE } from '../composables/format.js'
@@ -11,6 +12,8 @@ import PanneauMissions from './panneaux/PanneauMissions.vue'
 import PanneauNouvelles from './panneaux/PanneauNouvelles.vue'
 import PanneauJournal from './panneaux/PanneauJournal.vue'
 import './mj.css'
+
+const props = defineProps({ id: { type: String, required: true } })
 
 const ONGLETS = [
   { cle: 'horloge', nom: "Horloge d'Éveil", composant: PanneauHorloge },
@@ -32,27 +35,28 @@ const panneau = computed(() => ONGLETS.find((o) => o.cle === onglet.value).compo
 const publique = computed(() => (etat.value ? versPublic(etat.value) : null))
 
 onMounted(async () => {
-  const reponse = await fetch('/__mj/etat').catch(() => null)
-  if (!reponse) erreurChargement.value = 'Le serveur local ne répond pas. Lance « npm run mj ».'
-  else if (reponse.status === 404) erreurChargement.value = 'Aucun monde trouvé : place ton fichier etat.json dans le dossier mj/, puis recharge la page.'
-  else if (!reponse.ok) erreurChargement.value = `Lecture impossible (${reponse.status}).`
-  else etat.value = await reponse.json()
+  try {
+    etat.value = await api.etat(props.id)
+  } catch (erreur) {
+    erreurChargement.value = erreur.code === 'introuvable'
+      ? "Le monde de cette campagne n'a pas encore été importé. Voir « Importer ton monde » dans le README."
+      : erreur.message
+  }
 })
 
+// Les modifications rapprochées sont regroupées : un seul envoi après 400 ms de calme.
 let minuteur = null
 function enregistrer() {
   statut.value = 'Enregistrement…'
   clearTimeout(minuteur)
   minuteur = setTimeout(async () => {
-    const reponse = await fetch('/__mj/etat', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(etat.value),
-    }).catch(() => null)
-    statut.value = reponse?.ok
-      ? 'Enregistré. Pense à « npm run publier » en fin de session.'
-      : "Échec de l'enregistrement : vérifie que « npm run mj » tourne toujours."
-  }, 250)
+    try {
+      await api.enregistrerEtat(props.id, etat.value)
+      statut.value = 'Enregistré. Les joueurs voient les changements en rechargeant la carte.'
+    } catch (erreur) {
+      statut.value = `Échec de l'enregistrement : ${erreur.message}`
+    }
+  }, 400)
 }
 
 /** Point d'entrée unique des modifications : applique une transformation pure de l'état. */
@@ -92,7 +96,7 @@ const classerAlerte = (index) => agir((e) => retirerAlerte(e, index))
     <section class="mj" aria-labelledby="titre-mj">
       <div class="mj-bandeau">
         <div>
-          <p class="petites-capitales">Visible uniquement sur ton ordinateur</p>
+          <p class="petites-capitales">Visible uniquement des MJ</p>
           <h2 id="titre-mj">Table du MJ</h2>
         </div>
         <div class="mj-reglages">
