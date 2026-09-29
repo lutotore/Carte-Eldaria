@@ -4,9 +4,9 @@
  */
 export const EDITEUR = {
   /** Ton prénom et ton nom (l'éditeur d'un site est la personne qui le publie). */
-  nom: null,
+  nom: 'Tom Godard',
   /** Une adresse pour te joindre au sujet du site ou des données personnelles. */
-  contact: null,
+  contact: 'tom.godard71@gmail.com',
 }
 
 export const HEBERGEUR = {
