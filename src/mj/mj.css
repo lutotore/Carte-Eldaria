@@ -1,0 +1,39 @@
+/* Table du MJ : le pupitre du capitaine, réservé aux MJ de la campagne. */
+.mj { max-width: 1320px; margin: 0 auto; padding-inline: 16px; padding-block: 0.5rem 3rem; display: flex; flex-direction: column; gap: 1.1rem; }
+.mj-bandeau { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; border-top: 1px dashed var(--couture); padding-top: 1.5rem; }
+.mj-bandeau h2 { font-size: 2rem; color: var(--laiton-clair); text-shadow: 0 2px 2px rgba(0, 0, 0, 0.6); }
+.mj-bandeau .petites-capitales { margin: 0; color: #cdb48c; }
+.mj-reglages { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.75rem; }
+.mj-reglages .champ { color: #cdb48c; }
+.mj-statut { margin: 0; font-size: var(--t-s); color: #cdb48c; font-style: italic; }
+.mj-erreur { color: #f08f7d; font-weight: 700; }
+.alertes { display: flex; flex-direction: column; gap: 0.6rem; padding: 1rem 1.2rem; border-left: 4px solid var(--rouge); }
+.alerte { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; }
+.alerte strong { color: var(--rouge); display: block; font-family: var(--f-titre); font-size: 1.1rem; font-weight: 400; }
+.alerte div:first-child { flex: 1 1 18rem; min-width: 0; }
+.alerte .actions { display: flex; gap: 0.5rem; }
+.pupitre { padding: 0.4rem 1.4rem 1.6rem; }
+.pupitre--gele { opacity: 0.55; filter: grayscale(0.4); }
+.mj-onglets { display: flex; gap: 0.2rem; overflow-x: auto; border-bottom: 2px solid var(--encre); margin-bottom: 1.2rem; }
+.mj-onglets button { background: none; border: 0; padding: 0.7rem 0.9rem 0.5rem; font-family: var(--f-titre); font-size: 1.1rem; color: var(--encre-2); white-space: nowrap; }
+.mj-onglets button[aria-selected='true'] { color: var(--rouge); box-shadow: inset 0 -3px 0 var(--rouge); }
+.panneau { display: flex; flex-direction: column; gap: 1.25rem; color: var(--encre); }
+.panneau h3 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+.deux-colonnes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem; }
+@media (max-width: 820px) { .deux-colonnes { grid-template-columns: minmax(0, 1fr); } }
+.tableau { overflow-x: auto; }
+.tableau table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.tableau th { text-align: left; font-weight: 400; font-style: italic; color: var(--encre-2); border-bottom: 1.5px solid var(--encre); padding: 0.3rem 0.5rem; white-space: nowrap; }
+.tableau td { border-bottom: 1px solid rgba(45, 31, 21, 0.18); padding: 0.4rem 0.5rem; vertical-align: middle; }
+.pas { display: inline-flex; align-items: center; gap: 0.4rem; }
+.pas button {
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--laiton-sombre);
+  border-radius: 50%;
+  padding: 0;
+  color: #2a1a0c;
+  font-weight: 700;
+  background: radial-gradient(circle at 35% 30%, var(--laiton-clair), var(--laiton) 60%, #8a6228);
+}
+.aide { margin: 0; color: var(--encre-2); font-style: italic; font-size: var(--t-s); }

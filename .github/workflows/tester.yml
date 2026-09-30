@@ -1,4 +1,4 @@
-name: Tester
+name: Tester et déployer
 
 on:
   push:
@@ -26,3 +26,29 @@ jobs:
       # Tests du site et de l'API ; ceux de l'API vérifient qu'aucun secret du MJ n'atteint un joueur.
       - run: npm test
       - run: npm run build
+
+  deployer:
+    # Seulement après des tests verts, sur main, et une fois le déploiement activé (variable DEPLOIEMENT_ACTIF).
+    needs: tester
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && vars.DEPLOIEMENT_ACTIF == 'oui'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploiement
+      cancel-in-progress: false
+    steps:
+      - name: Déployer sur le VPS
+        env:
+          CLE: ${{ secrets.DEPLOIEMENT_CLE }}
+          HOTE: ${{ secrets.DEPLOIEMENT_HOTE }}
+          EMPREINTE_HOTE: ${{ secrets.DEPLOIEMENT_EMPREINTE_HOTE }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$CLE" > ~/.ssh/deploiement
+          chmod 600 ~/.ssh/deploiement
+          # Empreinte du serveur connue d'avance : on refuse de parler à un imposteur.
+          printf '%s\n' "$EMPREINTE_HOTE" > ~/.ssh/known_hosts
+          # La clé ne peut lancer qu'une chose sur le serveur : le script de déploiement.
+          ssh -i ~/.ssh/deploiement -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=20 "ubuntu@${HOTE}"
+
+      - name: Vérifier que le site répond
+        run: curl --fail --silent --show-error --retry 10 --retry-delay 6 --retry-all-errors "https://${{ vars.DOMAINE }}/api/sante"
