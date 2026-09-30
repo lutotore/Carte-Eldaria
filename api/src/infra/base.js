@@ -119,6 +119,56 @@ export const MIGRATIONS = [
   );
   CREATE INDEX notifications_par_utilisateur ON notifications (utilisateur_id, cree_le);
   `,
+  // 4 — bibliothèque : fiches de PNJ, facettes révélées pièce par pièce, portraits, notes des joueurs.
+  `
+  CREATE TABLE fiches (
+    id          INTEGER PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    type        TEXT NOT NULL CHECK (type IN ('pnj')),
+    notes_mj    TEXT NOT NULL DEFAULT '',
+    cree_le     TEXT NOT NULL
+  );
+
+  CREATE TABLE facettes (
+    id      INTEGER PRIMARY KEY,
+    fiche_id INTEGER NOT NULL REFERENCES fiches(id) ON DELETE CASCADE,
+    cle     TEXT NOT NULL,
+    titre   TEXT,
+    valeur  TEXT NOT NULL DEFAULT '',
+    ordre   INTEGER NOT NULL
+  );
+  CREATE INDEX facettes_par_fiche ON facettes (fiche_id, ordre);
+
+  -- utilisateur_id NULL : révélée à tout le groupe.
+  CREATE TABLE revelations (
+    facette_id     INTEGER NOT NULL REFERENCES facettes(id) ON DELETE CASCADE,
+    utilisateur_id INTEGER REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    revele_le      TEXT NOT NULL
+  );
+  CREATE UNIQUE INDEX une_revelation_par_cible ON revelations (facette_id, COALESCE(utilisateur_id, 0));
+
+  CREATE TABLE images (
+    id          TEXT PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    type_mime   TEXT NOT NULL,
+    taille      INTEGER NOT NULL,
+    cree_le     TEXT NOT NULL
+  );
+
+  CREATE TABLE notes (
+    id              INTEGER PRIMARY KEY,
+    fiche_id        INTEGER NOT NULL REFERENCES fiches(id) ON DELETE CASCADE,
+    auteur_id       INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    type            TEXT NOT NULL CHECK (type IN ('note', 'croyance')),
+    visibilite      TEXT NOT NULL CHECK (visibilite IN ('privee', 'groupe')),
+    texte           TEXT NOT NULL,
+    cree_le         TEXT NOT NULL,
+    maj_le          TEXT NOT NULL,
+    lecture_comptee TEXT,
+    comptee_le      TEXT
+  );
+  CREATE INDEX notes_par_fiche ON notes (fiche_id, cree_le);
+  `,
 ]
 
 export function ouvrirBase(chemin) {

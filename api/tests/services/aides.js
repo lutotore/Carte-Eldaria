@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { ouvrirBase } from '../../src/infra/base.js'
+import { creerStockageMemoire } from '../../src/infra/stockageImages.js'
 import { creerPortail } from '../../src/services/portail.js'
 
 export const MDP = 'une phrase de passe solide'
@@ -8,9 +9,10 @@ export const MDP = 'une phrase de passe solide'
 export function portailDeTest() {
   const horloge = { maintenant: new Date('2026-10-05T20:00:00Z') }
   const db = ouvrirBase(':memory:')
-  const portail = creerPortail({ db, maintenant: () => horloge.maintenant, coutMotDePasse: { N: 1024 } })
+  const images = creerStockageMemoire()
+  const portail = creerPortail({ db, maintenant: () => horloge.maintenant, coutMotDePasse: { N: 1024 }, images })
   const avancer = (jours) => { horloge.maintenant = new Date(horloge.maintenant.getTime() + jours * 86_400_000) }
-  return { db, portail, avancer }
+  return { db, portail, avancer, images }
 }
 
 /** Une campagne avec son propriétaire « tom » déjà inscrit. */

@@ -97,6 +97,16 @@ se lisent comme le cahier des charges : `api/tests/services/comptes.test.js` sui
 - Les durées de conservation annoncées dans `src/legal.js` doivent rester alignées sur l'API
   (`DUREES_JOURS` dans `api/src/services/portail.js`) et sur la rétention des sauvegardes.
 
+## Bibliothèque de PNJ : la révélation
+
+Chaque fiche est faite de **facettes** (nom, portrait, rôle, faction, lieu, attitude, statut, description, secrets).
+Chacune est cachée, révélée au groupe, ou révélée à certains joueurs. La règle tient dans une fonction pure,
+`vueJoueur` (`src/domain/fiches.js`), partagée par le site et l'API : c'est elle qui décide ce qu'un joueur reçoit.
+Les notes du MJ ne sortent jamais de l'API ; les portraits ne sont servis qu'à ceux qui ont le droit de les voir.
+
+Les joueurs écrivent des **notes** et des **croyances** (privées ou partagées). Un MJ peut compter une croyance
+dans le Registre des Croyances de la campagne en un clic.
+
 ## Plusieurs MJ en même temps
 
 Chaque enregistrement de la table du MJ rappelle la **version** du monde sur laquelle il a été fait.

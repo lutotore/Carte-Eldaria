@@ -50,6 +50,23 @@ describe('ligne de commande du serveur', () => {
     await expect(portail.connecter({ identifiant: 'tom', motDePasse: MDP })).rejects.toBeDefined()
   })
 
+  it('importe des fiches de PNJ depuis un fichier', async () => {
+    const { portail } = portailDeTest()
+    const { campagneId, tomId } = await campagneAvecProprietaire(portail)
+    const fichier = JSON.stringify({ version: 1, fiches: [{ type: 'pnj', nom: 'Pip', facettes: { attitude: 'amical' }, secrets: [], notesMj: '' }] })
+    const sortie = await lancer(portail, ['importer-fiches', String(campagneId), 'pnj.json'], '', { 'pnj.json': fichier })
+    expect(sortie).toMatch(/1 fiche\(s\) importée\(s\), toutes cachées/)
+    expect(portail.bibliotheque({ demandeurId: tomId, campagneId }).fiches.map((f) => f.nom)).toEqual(['Pip'])
+  })
+
+  it("importe des fiches depuis l'entrée standard (pratique avec docker compose exec -T)", async () => {
+    const { portail } = portailDeTest()
+    const { campagneId, tomId } = await campagneAvecProprietaire(portail)
+    const fichier = JSON.stringify({ version: 1, fiches: [{ type: 'pnj', nom: 'Mila', facettes: {}, secrets: [], notesMj: '' }] })
+    await lancer(portail, ['importer-fiches', String(campagneId)], fichier)
+    expect(portail.bibliotheque({ demandeurId: tomId, campagneId }).fiches.map((f) => f.nom)).toEqual(['Mila'])
+  })
+
   it('refuse une commande inconnue en affichant l’aide', async () => {
     const { portail } = portailDeTest()
     await expect(lancer(portail, ['danser'])).rejects.toThrow(/Commandes disponibles/)

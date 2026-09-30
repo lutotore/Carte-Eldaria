@@ -1,7 +1,9 @@
+import { dirname, join } from 'node:path'
 import { readFile } from 'node:fs/promises'
 import { pathToFileURL } from 'node:url'
 import { lireConfig } from './config.js'
 import { ouvrirBase } from './infra/base.js'
+import { creerStockageDisque } from './infra/stockageImages.js'
 import { creerPortail } from './services/portail.js'
 
 const AIDE = `Commandes disponibles :
@@ -10,6 +12,8 @@ const AIDE = `Commandes disponibles :
                                  remplace le monde de la campagne par ce fichier JSON
                                  (ou par ce qui arrive sur l'entrée standard)
   exporter-etat <n° campagne>    écrit le monde de la campagne sur la sortie standard
+  importer-fiches <n° campagne> [fichier]
+                                 ajoute les PNJ du fichier JSON (ou de l'entrée standard) à la bibliothèque, tous cachés
   reinitialiser <identifiant>    affiche un lien pour choisir un nouveau mot de passe
   purger                         efface les sessions et liens périmés`
 
@@ -27,6 +31,12 @@ export async function executerCommande([commande, argument, fichier], { portail,
       const texte = fichier ? await lireFichier(fichier) : await lireEntree()
       portail.importerEtat(Number(argument), JSON.parse(texte))
       ecrire(`Monde importé dans la campagne n° ${argument}.`)
+      return
+    }
+    case 'importer-fiches': {
+      const texte = fichier ? await lireFichier(fichier) : await lireEntree()
+      const { nombre } = portail.importerFiches(Number(argument), JSON.parse(texte))
+      ecrire(`${nombre} fiche(s) importée(s), toutes cachées, dans la campagne n° ${argument}.`)
       return
     }
     case 'exporter-etat': {
@@ -60,7 +70,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const db = ouvrirBase(config.cheminBase)
   try {
     await executerCommande(process.argv.slice(2), {
-      portail: creerPortail({ db }),
+      portail: creerPortail({ db, images: creerStockageDisque(join(dirname(config.cheminBase), 'images')) }),
       origine: config.origine,
       lireEntree: lireEntreeStandard,
       lireFichier: (chemin) => readFile(chemin, 'utf8'),

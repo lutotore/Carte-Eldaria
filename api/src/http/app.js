@@ -3,6 +3,7 @@ import rateLimit from '@fastify/rate-limit'
 import Fastify from 'fastify'
 import { ErreurMetier } from '../domaine/erreurs.js'
 import { DUREES_JOURS } from '../services/portail.js'
+import { routesBibliotheque } from './routes/bibliotheque.js'
 import { routesCampagnes } from './routes/campagnes.js'
 import { routesLiens } from './routes/liens.js'
 import { routesMoi } from './routes/moi.js'
@@ -49,6 +50,9 @@ export function construireApp({ portail, config }) {
 
   // Seul le JSON est accepté : un formulaire HTML piégé sur un autre site ne peut pas en envoyer.
   app.removeContentTypeParser('text/plain')
+  // Portraits envoyés bruts. Ces types déclenchent une vérification CORS : un autre site ne peut pas en envoyer.
+  app.addContentTypeParser(['image/png', 'image/jpeg', 'image/webp'], { parseAs: 'buffer', bodyLimit: 6 * 1024 * 1024 },
+    (request, corps, termine) => termine(null, corps))
 
   const session = {
     nom: config.cookieSecurise ? '__Host-eldaria_session' : 'eldaria_session',
@@ -86,7 +90,7 @@ export function construireApp({ portail, config }) {
 
   // Les réponses de l'API sont personnelles : aucun cache ne doit les garder.
   app.addHook('onSend', async (request, reply) => {
-    reply.header('Cache-Control', 'no-store')
+    if (!reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'no-store')
   })
 
   app.setErrorHandler((erreur, request, reply) => {
@@ -109,6 +113,7 @@ export function construireApp({ portail, config }) {
     routesLiens(api, portail, config)
     routesCampagnes(api, portail, config)
     routesPlanning(api, portail)
+    routesBibliotheque(api, portail)
   })
 
   return app

@@ -23,6 +23,7 @@ import { moi } from '../session.js'
         <li><strong>Ton rôle et ta date d'arrivée</strong> dans chaque campagne : ils déterminent ce que tu peux voir.</li>
         <li><strong>Tes sessions de connexion</strong> : leur date d'ouverture et d'expiration, pour te garder connecté·e sans redemander ton mot de passe.</li>
         <li><strong>Tes disponibilités</strong> (joueurs uniquement) : pour chaque date proposée, oui ou non et ta plage horaire, pour trouver une date qui convient à la table.</li>
+        <li><strong>Tes notes et croyances</strong> sur les personnages de la bibliothèque, que tu écris et choisis de garder privées ou de partager avec le groupe.</li>
         <li><strong>Tes notifications</strong> : les messages du portail qui te sont adressés (sondage ouvert, séance fixée ou annulée) et s'ils ont été lus.</li>
         <li><strong>Ton adresse IP</strong>, uniquement en mémoire et pendant 15 minutes au plus, pour limiter les tentatives de connexion répétées. Elle n'est enregistrée ni dans la base ni dans les journaux du serveur.</li>
       </ul>
@@ -35,6 +36,7 @@ import { moi } from '../session.js'
       <h2>Qui peut les voir ?</h2>
       <ul>
         <li>Les MJ de ta campagne voient ton identifiant, ton rôle et ta date d'arrivée.</li>
+        <li>Une note privée n'est lue que par toi et par les MJ ; une note partagée, par tous les membres qui connaissent le personnage concerné. Un MJ peut reporter une croyance dans le registre de la campagne, avec son texte.</li>
         <li>Les réponses à un sondage de dates sont visibles des MJ et des autres joueurs réguliers de la campagne, comme sur un sondage de dates classique.</li>
         <li>L'hébergeur, {{ HEBERGEUR.nom }}, stocke les données sur ses serveurs situés en France, pour le compte de l'éditeur.</li>
         <li>Les données ne quittent pas l'Union européenne et ne sont ni vendues, ni louées, ni utilisées à des fins publicitaires.</li>
@@ -45,6 +47,7 @@ import { moi } from '../session.js'
         <li>Ton compte : jusqu'à ce que tu le supprimes. S'il ne fait plus partie d'aucune campagne, il est supprimé automatiquement dès l'expiration de ta dernière session, soit {{ DUREES.sessionJours }} jours au plus après ta dernière connexion.</li>
         <li>Les sessions : {{ DUREES.sessionJours }} jours, ou jusqu'à ta déconnexion.</li>
         <li>Les liens d'invitation et de réinitialisation : valables {{ DUREES.invitationJours }} et {{ DUREES.reinitialisationJours }} jours ; ils sont effacés au plus tard 24 heures après avoir servi ou expiré.</li>
+        <li>Tes notes et croyances : jusqu'à ce que tu les supprimes, ou avec ton compte. Une croyance reportée dans le registre de la campagne y reste, sans ton identifiant.</li>
         <li>Tes disponibilités : {{ DUREES.disponibilitesJours }} jours après la dernière date proposée par le sondage.</li>
         <li>Les notifications : {{ DUREES.notificationsLuesJours }} jours après leur lecture, et {{ DUREES.notificationsJours }} jours au plus.</li>
         <li>Les copies de sauvegarde, qui protègent la campagne contre une panne : {{ DUREES.sauvegardesMois }} mois au plus. Une donnée supprimée disparaît donc des sauvegardes au bout de ce délai.</li>

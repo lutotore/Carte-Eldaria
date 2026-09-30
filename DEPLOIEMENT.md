@@ -197,6 +197,26 @@ dans `~/.ssh/authorized_keys` sur le serveur.
 Si tu modifies un jour `scripts/deployer.sh`, relance la commande `sudo install …` de la partie 2 : le serveur n'utilise
 jamais directement la version du dépôt.
 
+## Importer les PNJ préparés (bibliothèque)
+
+Le fichier `pnj-acte-1.json` contient tous les PNJ de l'Acte I (descriptions, secrets, notes MJ, prompts de portraits).
+Il contient des spoilers : garde-le dans `mj/`, jamais dans le dépôt. Depuis ton PC :
+
+```powershell
+scp mj/pnj-acte-1.json eldaria:/tmp/pnj.json
+```
+
+Puis sur le serveur :
+
+```bash
+cd /opt/eldaria
+docker compose exec -T api npm run -s cli -- importer-fiches 1 < /tmp/pnj.json
+rm /tmp/pnj.json
+```
+
+Toutes les fiches arrivent **cachées** : les joueurs ne voient rien tant que tu ne révèles pas, facette par facette.
+Les portraits se téléversent ensuite depuis chaque fiche ; ils sont stockés dans `donnees/images/`, à côté de la base.
+
 ## Commandes utiles
 
 | Besoin | Commande (dans `/opt/eldaria`) |

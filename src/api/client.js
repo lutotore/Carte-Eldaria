@@ -65,6 +65,37 @@ export const api = {
   notifications: () => appeler('GET', '/api/notifications'),
   marquerNotificationsLues: () => appeler('POST', '/api/notifications/lues'),
 
+  bibliotheque: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/bibliotheque`),
+  fiche: (campagneId, ficheId) => appeler('GET', `/api/campagnes/${campagneId}/fiches/${ficheId}`),
+  creerFiche: (campagneId, nom) => appeler('POST', `/api/campagnes/${campagneId}/fiches`, { nom }),
+  supprimerFiche: (campagneId, ficheId) => appeler('DELETE', `/api/campagnes/${campagneId}/fiches/${ficheId}`),
+  modifierFacette: (campagneId, ficheId, facetteId, valeur, titre) => appeler('PUT', `/api/campagnes/${campagneId}/fiches/${ficheId}/facettes/${facetteId}`, { valeur, titre }),
+  ajouterSecret: (campagneId, ficheId, titre, texte) => appeler('POST', `/api/campagnes/${campagneId}/fiches/${ficheId}/secrets`, { titre, texte }),
+  supprimerSecret: (campagneId, ficheId, facetteId) => appeler('DELETE', `/api/campagnes/${campagneId}/fiches/${ficheId}/facettes/${facetteId}`),
+  modifierNotesMj: (campagneId, ficheId, notesMj) => appeler('PUT', `/api/campagnes/${campagneId}/fiches/${ficheId}/notes-mj`, { notesMj }),
+  reveler: (campagneId, ficheId, facetteId, pourTous, joueurs) => appeler('PUT', `/api/campagnes/${campagneId}/fiches/${ficheId}/facettes/${facetteId}/revelation`, { pourTous, joueurs }),
+  urlImage: (campagneId, imageId) => `/api/campagnes/${campagneId}/images/${imageId}`,
+  ajouterNote: (campagneId, ficheId, note) => appeler('POST', `/api/campagnes/${campagneId}/fiches/${ficheId}/notes`, note),
+  modifierNote: (campagneId, noteId, texte, visibilite) => appeler('PUT', `/api/campagnes/${campagneId}/notes/${noteId}`, { texte, visibilite }),
+  supprimerNote: (campagneId, noteId) => appeler('DELETE', `/api/campagnes/${campagneId}/notes/${noteId}`),
+  compterCroyance: (campagneId, noteId, lecture) => appeler('POST', `/api/campagnes/${campagneId}/notes/${noteId}/comptage`, { lecture }),
+
   changerMotDePasse: (actuel, nouveau) => appeler('PUT', '/api/moi/mot-de-passe', { actuel, nouveau }),
   supprimerCompte: (motDePasse) => appeler('POST', '/api/moi/suppression', { motDePasse }),
+}
+
+/** Le portrait part tel quel (PNG, JPEG ou WebP) : le serveur vérifie lui-même le vrai format. */
+export async function envoyerPortrait(campagneId, ficheId, fichier) {
+  let reponse
+  try {
+    reponse = await fetch(`/api/campagnes/${campagneId}/fiches/${ficheId}/portrait`, {
+      method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': fichier.type, Accept: 'application/json' }, body: fichier,
+    })
+  } catch {
+    throw new ErreurApi(0, 'reseau', 'Le serveur ne répond pas. Vérifie ta connexion et réessaie.')
+  }
+  const donnees = await reponse.json().catch(() => null)
+  if (reponse.status === 415) throw new ErreurApi(415, 'requete_invalide', 'Formats acceptés : PNG, JPEG ou WebP.')
+  if (!reponse.ok) throw new ErreurApi(reponse.status, donnees?.code ?? 'inconnu', donnees?.message ?? `Erreur ${reponse.status}.`)
+  return donnees
 }

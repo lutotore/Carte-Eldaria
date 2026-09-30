@@ -102,6 +102,11 @@ button { cursor: pointer; }
 .tampon--disponible { color: var(--ruban); }
 .tampon--tombee { color: var(--rouge); }
 .tampon--cachee { color: var(--encre-2); border-style: dashed; }
+.tampon--attitude-allie { color: var(--vert); }
+.tampon--attitude-amical { color: #4f7a45; }
+.tampon--attitude-neutre { color: var(--encre-2); }
+.tampon--attitude-mefiant { color: var(--ocre-alerte); }
+.tampon--attitude-hostile { color: var(--rouge); }
 
 .lien-bouton {
   background: none;

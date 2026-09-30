@@ -8,6 +8,7 @@ import { creerDepots } from '../infra/depots.js'
 import { transaction } from '../infra/base.js'
 import { empreinteJeton, genererJeton } from '../securite/jetons.js'
 import { hacherMotDePasse, verifierMotDePasse } from '../securite/motsDePasse.js'
+import { creerBibliotheque } from './bibliotheque.js'
 import { creerPlanning } from './planning.js'
 
 export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
@@ -16,9 +17,10 @@ export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
  * Cas d'usage du portail. Chaque méthode vérifie elle-même les droits du demandeur :
  * la couche HTTP ne fait que traduire, elle ne décide de rien.
  */
-export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse = {} }) {
+export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse = {}, images }) {
   const depots = creerDepots(db)
   const planningDeLaCampagne = creerPlanning({ db, depots, maintenant })
+  const bibliothequeDeLaCampagne = creerBibliotheque({ db, depots, maintenant, images })
   const iso = () => maintenant().toISOString()
   const hacher = (motDePasse) => hacherMotDePasse(motDePasse, coutMotDePasse)
 
@@ -208,6 +210,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
       transaction(db, () => {
         depots.participations.retirer(cibleId, campagneId)
         planningDeLaCampagne.oublierNotificationsDe(cibleId, campagneId)
+        bibliothequeDeLaCampagne.oublierRevelationsDe(cibleId, campagneId)
       })
     },
 
@@ -274,6 +277,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         campagnes: depots.participations.campagnesDe(utilisateurId).map(({ nom, role, rejointLe }) => ({ nom, role, rejointLe })),
         sessions: depots.sessions.resumeDe(utilisateurId),
         ...planningDeLaCampagne.donneesPlanningDe(utilisateurId),
+        ...bibliothequeDeLaCampagne.donneesBibliothequeDe(utilisateurId),
       }
     },
 
@@ -293,5 +297,8 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
 
     // --- Lot 2 : planification des séances et notifications (voir services/planning.js) ---
     ...planningDeLaCampagne,
+
+    // --- Lot 3 : bibliothèque de PNJ (voir services/bibliotheque.js) ---
+    ...bibliothequeDeLaCampagne,
   }
 }
