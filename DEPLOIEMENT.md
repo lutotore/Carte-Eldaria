@@ -110,13 +110,92 @@ Pour le co-MJ, crée deux liens : un **MJ** et un **Joueur**, qui donneront deux
 
 ## Mettre à jour après un changement de code
 
+Une fois le déploiement automatique en place (section suivante), **il suffit de pousser sur `main`** :
+GitHub lance les tests, puis met le serveur à jour s'ils sont verts. Suis l'avancement dans l'onglet **Actions**.
+
+À la main, si besoin :
+
 ```bash
 cd /opt/eldaria
 git pull
 docker compose up -d --build
 ```
 
-Seuls les conteneurs modifiés redémarrent. La base et les certificats sont conservés.
+## Déploiement automatique (à mettre en place une fois)
+
+### Comment ça marche
+
+Après des tests verts sur `main`, GitHub se connecte au VPS avec une **clé SSH dédiée**. Cette clé est bridée :
+dans `authorized_keys`, une *commande forcée* l'oblige à lancer `/usr/local/bin/eldaria-deployer` et rien d'autre
+(`git pull` puis `docker compose up -d --build`). Le script est installé hors du dépôt : un commit ne peut pas changer
+ce que la clé a le droit de faire.
+
+**Important** : quiconque peut pousser sur `main` peut désormais modifier le serveur. Active la
+**double authentification** sur ton compte GitHub (Settings → Password and authentication).
+
+### Partie 1 : sur ton Mac (ou n'importe quel ordinateur)
+
+1. Crée la clé de déploiement, **sans phrase de passe** (GitHub doit pouvoir l'utiliser seul ; c'est la commande forcée qui la rend inoffensive) :
+   ```bash
+   ssh-keygen -t ed25519 -N "" -C "deploiement-github-eldaria" -f ~/.ssh/eldaria_deploiement
+   ```
+2. Relève l'empreinte du serveur (aucune connexion n'est nécessaire, remplace l'IP) :
+   ```bash
+   ssh-keyscan -t ed25519 IP_DU_VPS
+   ```
+   Garde la ligne affichée (elle commence par l'IP, puis `ssh-ed25519 AAAA…`).
+3. Sur GitHub, dépôt → **Settings → Secrets and variables → Actions** :
+   - onglet **Secrets**, bouton **New repository secret** :
+     | Nom | Valeur |
+     |---|---|
+     | `DEPLOIEMENT_CLE` | tout le contenu de `~/.ssh/eldaria_deploiement` (`pbcopy < ~/.ssh/eldaria_deploiement` le copie), lignes BEGIN et END comprises |
+     | `DEPLOIEMENT_HOTE` | l'IP du VPS |
+     | `DEPLOIEMENT_EMPREINTE_HOTE` | la ligne donnée par `ssh-keyscan` |
+   - onglet **Variables**, bouton **New repository variable** :
+     | Nom | Valeur |
+     |---|---|
+     | `DOMAINE` | `eldaria.mondomaine.fr` |
+4. Garde de côté le contenu de `~/.ssh/eldaria_deploiement.pub` (la partie publique, sans risque : envoie-la-toi par message).
+5. Supprime la partie privée du Mac, seul GitHub en a besoin : `rm ~/.ssh/eldaria_deploiement`.
+
+### Partie 2 : sur le serveur (depuis un ordinateur qui a déjà accès)
+
+```bash
+ssh eldaria
+cd /opt/eldaria && git pull
+```
+
+1. Installe le script hors du dépôt, propriété de root :
+   ```bash
+   sudo install -m 755 -o root -g root /opt/eldaria/scripts/deployer.sh /usr/local/bin/eldaria-deployer
+   ```
+2. Vérifie que l'empreinte relevée à l'étape 2 est bien celle du serveur :
+   ```bash
+   cat /etc/ssh/ssh_host_ed25519_key.pub
+   ```
+   La longue suite `AAAA…` doit être **identique** à celle de ta ligne `ssh-keyscan`. Sinon, arrête-toi et préviens-moi.
+3. Autorise la clé de déploiement, bridée :
+   ```bash
+   nano ~/.ssh/authorized_keys
+   ```
+   Ajoute **une nouvelle ligne** à la fin (sans toucher aux autres), en collant ta clé publique après le préfixe :
+   ```
+   restrict,command="/usr/local/bin/eldaria-deployer" ssh-ed25519 AAAA… deploiement-github-eldaria
+   ```
+   `restrict` interdit tout le reste (terminal, redirections de ports…).
+
+### Partie 3 : activer et tester
+
+1. Sur GitHub, onglet **Variables**, ajoute `DEPLOIEMENT_ACTIF` avec la valeur `oui`.
+   Tant que cette variable n'existe pas, le workflow teste mais ne déploie pas : c'est ce qui évite des échecs en attendant.
+2. Onglet **Actions → Tester et déployer → Run workflow** (branche `main`).
+3. Les deux étapes doivent passer au vert ; la dernière vérifie que `https://<ton domaine>/api/sante` répond.
+
+Pour couper le déploiement automatique : passe `DEPLOIEMENT_ACTIF` à `non`. Pour révoquer la clé : supprime sa ligne
+dans `~/.ssh/authorized_keys` sur le serveur.
+
+Si tu modifies un jour `scripts/deployer.sh`, relance la commande `sudo install …` de la partie 2 : le serveur n'utilise
+jamais directement la version du dépôt.
 
 ## Commandes utiles
 
