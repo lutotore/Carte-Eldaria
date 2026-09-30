@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { noterCroyance } from '../../../src/domain/suivi.js'
 import { erreurs } from '../domaine/erreurs.js'
 import {
-  erreurFacette, erreurNote, erreurTitreSecret, etatDeRevelation, FACETTES_PNJ, vueJoueur,
+  ESTIMABLES, erreurFacette, erreurNote, erreurTitreSecret, etatDeRevelation, FACETTES_PAR_TYPE, grilleEstimations,
+  LIBELLES_FACETTES, TITREES_PAR_TYPE, vueJoueur,
 } from '../../../src/domain/fiches.js'
 import { estMj } from '../domaine/roles.js'
 import { transaction } from '../infra/base.js'
@@ -10,6 +11,9 @@ import { creerDepotsBibliotheque } from '../infra/depotsBibliotheque.js'
 import { creerDepotsPlanning } from '../infra/depotsPlanning.js'
 
 const TAILLE_MAX_IMAGE = 5 * 1024 * 1024
+const LONGUEUR_MAX_ESTIMATION = 200
+/** Clés du fichier d'import pour chaque facette titrée. */
+const LISTES_IMPORT = { secret: 'secrets', capacite: 'capacites', action: 'actions', reaction: 'reactions' }
 const LONGUEUR_MAX_NOTES_MJ = 20_000
 
 /** Type d'image reconnu à ses premiers octets (on ne se fie jamais au nom ni au type annoncé). */
@@ -79,30 +83,75 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
     return contenu ? JSON.parse(contenu).regles?.lectures ?? [] : []
   }
 
-  function creerFicheAvecFacettes(campagneId, { type = 'pnj', nom, facettes = {}, secrets = [], notesMj = '' }) {
+  function exigerType(type) {
+    exiger(Object.hasOwn(FACETTES_PAR_TYPE, type), erreurs.requeteInvalide('Type de fiche inconnu.'))
+  }
+
+  function creerFicheAvecFacettes(campagneId, { type = 'pnj', nom, facettes = {}, notesMj = '', ...listes }) {
+    exigerType(type)
     const ficheId = biblio.fiches.creer({ campagneId, type, creeLe: iso() })
-    FACETTES_PNJ.forEach((cle, i) => {
+    let ordre = 0
+    for (const cle of FACETTES_PAR_TYPE[type]) {
       const valeur = cle === 'nom' ? nom : String(facettes[cle] ?? '')
       if (cle !== 'portrait') {
         const probleme = erreurFacette(cle, valeur)
         exiger(!probleme, erreurs.requeteInvalide(`${nom} — ${cle} : ${probleme}`))
       }
-      biblio.facettes.creer({ ficheId, cle, valeur: cle === 'portrait' ? '' : valeur, ordre: i + 1 })
-    })
-    secrets.forEach((secret, i) => {
-      exiger(!erreurTitreSecret(secret.titre) && !erreurFacette('secret', secret.texte), erreurs.requeteInvalide(`${nom} : secret invalide.`))
-      biblio.facettes.creer({ ficheId, cle: 'secret', titre: secret.titre.trim(), valeur: secret.texte, ordre: FACETTES_PNJ.length + i + 1 })
-    })
+      biblio.facettes.creer({ ficheId, cle, valeur: cle === 'portrait' ? '' : valeur, ordre: (ordre += 1) })
+    }
+    for (const cle of TITREES_PAR_TYPE[type]) {
+      for (const element of listes[LISTES_IMPORT[cle]] ?? []) {
+        exiger(!erreurTitreSecret(element.titre) && !erreurFacette(cle, element.texte), erreurs.requeteInvalide(`${nom} : ${LIBELLES_FACETTES[cle].toLowerCase()} invalide.`))
+        biblio.facettes.creer({ ficheId, cle, titre: element.titre.trim(), valeur: element.texte, ordre: (ordre += 1) })
+      }
+    }
     if (notesMj) biblio.fiches.changerNotesMj(ficheId, notesMj)
     return ficheId
   }
 
+  /** Ajoute une facette titrée : secret, capacité, action ou réaction selon le type de fiche. */
+  function ajouterTitree({ demandeurId, campagneId, ficheId, cle = 'secret', titre, texte }) {
+    exigerMj(demandeurId, campagneId)
+    const fiche = exigerFiche(ficheId, campagneId)
+    exiger(TITREES_PAR_TYPE[fiche.type].includes(cle), erreurs.requeteInvalide("Ce type d'élément n'existe pas pour cette fiche."))
+    const probleme = erreurTitreSecret(titre) ?? erreurFacette(cle, texte)
+    exiger(!probleme, erreurs.requeteInvalide(probleme))
+    const facetteId = biblio.facettes.creer({ ficheId, cle, titre: titre.trim(), valeur: texte, ordre: biblio.facettes.prochainOrdre(ficheId) })
+    return { facetteId }
+  }
+
+  function estimationsDe(ficheId) {
+    return Object.fromEntries(biblio.estimations.deLaFiche(ficheId).map(({ cle, ...e }) => [cle, e]))
+  }
+
+  /**
+   * Prévient chaque joueur qui découvre quelque chose entre deux états de la fiche,
+   * avec le nom du personnage tel que lui le connaît.
+   */
+  function notifierDecouvertes(campagneId, avant, apres) {
+    for (const joueur of joueursDe(campagneId)) {
+      const vuAvant = vueJoueur(avant, avant.facettes, joueur.id)?.facettes.length ?? -1
+      const vueApres = vueJoueur(apres, apres.facettes, joueur.id)
+      const nomAvant = vueJoueur(avant, avant.facettes, joueur.id)?.nom
+      const nomApres = vueApres?.nom
+      const portraitNouveau = vueApres?.portrait && !vueJoueur(avant, avant.facettes, joueur.id)?.portrait
+      const decouvre = vueApres && (vueApres.facettes.length > vuAvant || (nomApres && !nomAvant) || portraitNouveau)
+      if (!decouvre) continue
+      const chemin = apres.type === 'creature' ? 'bestiaire' : 'bibliotheque'
+      notifications.creer({
+        utilisateurId: joueur.id, campagneId, texte: `Nouvelle information : ${nomApres ?? (apres.type === 'creature' ? 'une créature' : 'un personnage')}.`,
+        lien: `/campagne/${campagneId}/${chemin}/${apres.id}`, creeLe: iso(),
+      })
+    }
+  }
+
   return {
     /** Liste des fiches : toutes pour un MJ, seulement ce qui a été révélé pour un joueur. */
-    bibliotheque({ demandeurId, campagneId }) {
+    bibliotheque({ demandeurId, campagneId, type = 'pnj' }) {
       const role = roleDans(demandeurId, campagneId)
       exiger(role, erreurs.interdit())
-      const fiches = fichesCompletes(campagneId)
+      exigerType(type)
+      const fiches = fichesCompletes(campagneId).filter((f) => f.type === type)
       if (!estMj(role)) {
         return { estMj: false, fiches: fiches.map((f) => vueJoueur(f, f.facettes, demandeurId)).filter(Boolean) }
       }
@@ -114,7 +163,7 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
           type: f.type,
           nom: valeurDe(f, 'nom'),
           portrait: valeurDe(f, 'portrait') || null,
-          role: valeurDe(f, 'role'),
+          role: valeurDe(f, f.type === 'creature' ? 'nature' : 'role'),
           attitude: valeurDe(f, 'attitude'),
           revelation: etatDeRevelation(f.facettes),
           nombreNotes: nombres[f.id] ?? 0,
@@ -135,20 +184,23 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
           notesMj: fiche.notesMj,
           facettes: fiche.facettes.map(({ ficheId: _f, ...f }) => f),
           notes: notesVisibles(fiche.id, demandeurId, true),
+          estimations: fiche.type === 'creature' ? estimationsDe(fiche.id) : {},
           joueurs: joueursDe(campagneId).map(({ id, identifiant, role: r }) => ({ id, identifiant, role: r })),
           lectures: lecturesDe(campagneId),
         }
       }
       const vue = vueJoueur(fiche, fiche.facettes, demandeurId)
       exiger(vue, erreurs.introuvable('Fiche'))
-      return { estMj: false, fiche: vue, notes: notesVisibles(fiche.id, demandeurId, false) }
+      const grille = fiche.type === 'creature' ? grilleEstimations(fiche.facettes, estimationsDe(fiche.id), demandeurId) : []
+      return { estMj: false, fiche: vue, grille, notes: notesVisibles(fiche.id, demandeurId, false) }
     },
 
-    creerFiche({ demandeurId, campagneId, nom }) {
+    creerFiche({ demandeurId, campagneId, nom, type = 'pnj' }) {
       exigerMj(demandeurId, campagneId)
+      exigerType(type)
       const probleme = erreurFacette('nom', String(nom ?? ''))
       exiger(!probleme, erreurs.requeteInvalide(probleme))
-      return transaction(db, () => ({ ficheId: creerFicheAvecFacettes(campagneId, { nom: nom.trim() }) }))
+      return transaction(db, () => ({ ficheId: creerFicheAvecFacettes(campagneId, { type, nom: nom.trim() }) }))
     },
 
     modifierFacette({ demandeurId, campagneId, ficheId, facetteId, valeur, titre }) {
@@ -158,26 +210,25 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       exiger(facette.cle !== 'portrait', erreurs.requeteInvalide('Le portrait se change en téléversant une image.'))
       const probleme = erreurFacette(facette.cle, valeur)
       exiger(!probleme, erreurs.requeteInvalide(probleme))
-      if (facette.cle === 'secret' && titre !== undefined) {
+      const titree = TITREES_PAR_TYPE[fiche.type].includes(facette.cle)
+      if (titree && titre !== undefined) {
         const erreurTitre = erreurTitreSecret(titre)
         exiger(!erreurTitre, erreurs.requeteInvalide(erreurTitre))
       }
-      biblio.facettes.changer(facette.id, facette.cle === 'nom' ? valeur.trim() : valeur, facette.cle === 'secret' ? titre?.trim() ?? null : null)
+      biblio.facettes.changer(facette.id, facette.cle === 'nom' ? valeur.trim() : valeur, titree ? titre?.trim() ?? null : null)
     },
 
-    ajouterSecret({ demandeurId, campagneId, ficheId, titre, texte }) {
-      exigerMj(demandeurId, campagneId)
-      exigerFiche(ficheId, campagneId)
-      const probleme = erreurTitreSecret(titre) ?? erreurFacette('secret', texte)
-      exiger(!probleme, erreurs.requeteInvalide(probleme))
-      const facetteId = biblio.facettes.creer({ ficheId, cle: 'secret', titre: titre.trim(), valeur: texte, ordre: biblio.facettes.prochainOrdre(ficheId) })
-      return { facetteId }
+    ajouterTitree,
+
+    ajouterSecret(demande) {
+      return ajouterTitree({ ...demande, cle: 'secret' })
     },
 
     supprimerSecret({ demandeurId, campagneId, ficheId, facetteId }) {
       exigerMj(demandeurId, campagneId)
-      const facette = exigerFacette(ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId), facetteId)
-      exiger(facette.cle === 'secret', erreurs.requeteInvalide('Seuls les secrets peuvent être supprimés.'))
+      const fiche = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
+      const facette = exigerFacette(fiche, facetteId)
+      exiger(TITREES_PAR_TYPE[fiche.type].includes(facette.cle), erreurs.requeteInvalide('Seuls les éléments ajoutés (secrets, capacités, actions…) peuvent être supprimés.'))
       biblio.facettes.supprimer(facette.id)
     },
 
@@ -212,20 +263,33 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
 
       transaction(db, () => {
         biblio.facettes.remplacerRevelations(facetteId, cibles, iso())
-        const apres = ficheComplete(ficheId, campagneId)
-        // Ne prévient que ceux qui découvrent quelque chose, avec le nom tel qu'eux le connaissent.
-        const facetteApres = apres.facettes.find((f) => f.id === facetteId)
-        if (facetteApres.valeur === '') return
-        const voyaitAvant = (id) => avant.facettes.find((f) => f.id === facetteId).revelations.some((r) => r.pourTous || r.utilisateurId === id)
-        for (const joueur of joueursCampagne) {
-          const voitMaintenant = facetteApres.revelations.some((r) => r.pourTous || r.utilisateurId === joueur.id)
-          if (!voitMaintenant || voyaitAvant(joueur.id)) continue
-          const nom = vueJoueur(apres, apres.facettes, joueur.id)?.nom ?? 'un personnage'
-          notifications.creer({
-            utilisateurId: joueur.id, campagneId, texte: `Nouvelle information : ${nom}.`, lien: `/campagne/${campagneId}/bibliotheque/${ficheId}`, creeLe: iso(),
-          })
-        }
+        notifierDecouvertes(campagneId, avant, ficheComplete(ficheId, campagneId))
       })
+    },
+
+    /** Révèle au groupe tout ce qui est rempli sur la fiche (pratique après un combat). */
+    revelerTout({ demandeurId, campagneId, ficheId }) {
+      exigerMj(demandeurId, campagneId)
+      const avant = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
+      transaction(db, () => {
+        for (const facette of avant.facettes.filter((f) => f.valeur !== '')) {
+          biblio.facettes.remplacerRevelations(facette.id, [null], iso())
+        }
+        notifierDecouvertes(campagneId, avant, ficheComplete(ficheId, campagneId))
+      })
+    },
+
+    /** Estimation partagée par les joueurs d'une statistique de créature ; un texte vide l'efface. */
+    estimer({ demandeurId, campagneId, ficheId, cle, texte }) {
+      const role = roleDans(demandeurId, campagneId)
+      exiger(role, erreurs.interdit())
+      const fiche = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
+      exiger(estMj(role) || vueJoueur(fiche, fiche.facettes, demandeurId), erreurs.introuvable('Fiche'))
+      exiger(!estMj(role), erreurs.interdit())
+      exiger(fiche.type === 'creature' && ESTIMABLES.includes(cle), erreurs.requeteInvalide('Cette statistique ne peut pas être estimée.'))
+      exiger(typeof texte === 'string' && texte.length <= LONGUEUR_MAX_ESTIMATION, erreurs.requeteInvalide(`Estimation trop longue (${LONGUEUR_MAX_ESTIMATION} caractères au plus).`))
+      if (texte.trim() === '') biblio.estimations.effacer(fiche.id, cle)
+      else biblio.estimations.ecrire({ ficheId: fiche.id, cle, texte: texte.trim(), auteurId: demandeurId, majLe: iso() })
     },
 
     definirPortrait({ demandeurId, campagneId, ficheId, octets }) {
@@ -338,16 +402,21 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
 
     /** Part de l'export RGPD : les notes écrites, avec le nom du PNJ tel que l'auteur le connaît. */
     donneesBibliothequeDe(utilisateurId) {
+      /** Le nom de la fiche tel que l'utilisateur le connaît ; plus membre, on ne lui apprend rien de nouveau. */
+      const nomConnu = (ficheId, campagneId) => {
+        const fiche = ficheComplete(ficheId, campagneId)
+        const role = roleDans(utilisateurId, campagneId)
+        if (estMj(role)) return valeurDe(fiche, 'nom')
+        const inconnu = fiche.type === 'creature' ? 'une créature inconnue' : 'un personnage inconnu'
+        return role ? vueJoueur(fiche, fiche.facettes, utilisateurId)?.nom ?? inconnu : inconnu
+      }
       return {
-        notes: biblio.notes.de(utilisateurId).map((n) => {
-          const fiche = ficheComplete(n.ficheId, n.campagneId)
-          const role = roleDans(utilisateurId, n.campagneId)
-          // Plus membre : on ne lui apprend pas ce qui a été révélé depuis son départ.
-          let nom = 'un personnage inconnu'
-          if (estMj(role)) nom = valeurDe(fiche, 'nom')
-          else if (role) nom = vueJoueur(fiche, fiche.facettes, utilisateurId)?.nom ?? nom
-          return { campagne: n.campagne, fiche: nom, type: n.type, visibilite: n.visibilite, texte: n.texte, creeLe: n.creeLe }
-        }),
+        notes: biblio.notes.de(utilisateurId).map((n) => ({
+          campagne: n.campagne, fiche: nomConnu(n.ficheId, n.campagneId), type: n.type, visibilite: n.visibilite, texte: n.texte, creeLe: n.creeLe,
+        })),
+        estimations: biblio.estimations.de(utilisateurId).map((e) => ({
+          campagne: e.campagne, fiche: nomConnu(e.ficheId, e.campagneId), statistique: LIBELLES_FACETTES[e.cle], texte: e.texte, majLe: e.majLe,
+        })),
       }
     },
   }

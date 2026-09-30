@@ -99,3 +99,52 @@ describe('notes des joueurs', () => {
     expect(erreurNote({ type: 'note', visibilite: 'privee', texte: 'x'.repeat(2001) })).not.toBeNull()
   })
 })
+
+describe('créatures du bestiaire', () => {
+  it('ont leurs propres facettes, en ordre de bloc de statistiques', async () => {
+    const { FACETTES_PAR_TYPE, TITREES_PAR_TYPE, ESTIMABLES } = await import('../../src/domain/fiches.js')
+    expect(FACETTES_PAR_TYPE.creature).toEqual([
+      'nom', 'portrait', 'nature', 'description', 'habitat', 'ca', 'pv', 'vitesse', 'caracteristiques', 'sauvegardes', 'competences', 'defenses', 'sens', 'langues',
+    ])
+    expect(FACETTES_PAR_TYPE.pnj).toEqual(FACETTES_PNJ)
+    expect(TITREES_PAR_TYPE).toEqual({ pnj: ['secret'], creature: ['capacite', 'action', 'reaction', 'secret'] })
+    expect(ESTIMABLES).toEqual(['nature', 'ca', 'pv', 'vitesse', 'caracteristiques', 'sauvegardes', 'competences', 'defenses', 'sens', 'langues'])
+  })
+
+  it('valident les facettes propres aux créatures', () => {
+    expect(erreurFacette('ca', '14 (armure naturelle)')).toBeNull()
+    expect(erreurFacette('action', 'Griffes : +4 au toucher.')).toBeNull()
+    expect(erreurFacette('caracteristiques', 'x'.repeat(301))).not.toBeNull()
+  })
+})
+
+describe('estimations des joueurs', () => {
+  it('montrent la vraie valeur une fois révélée, sinon l’estimation du groupe', async () => {
+    const { grilleEstimations } = await import('../../src/domain/fiches.js')
+    const facettes = [
+      facette(1, 'ca', '13 (armure naturelle)', auGroupe),
+      facette(2, 'pv', '45 (7d8 + 14)'),
+      facette(3, 'vitesse', '9 m', a(8)),
+    ]
+    const estimations = { ca: { texte: 'autour de 14', auteur: 'lea' }, pv: { texte: 'une trentaine', auteur: 'max' } }
+    const grille = grilleEstimations(facettes, estimations, 7)
+    expect(grille.find((l) => l.cle === 'ca')).toEqual({ cle: 'ca', valeur: '13 (armure naturelle)', estimation: { texte: 'autour de 14', auteur: 'lea' } })
+    expect(grille.find((l) => l.cle === 'pv')).toEqual({ cle: 'pv', valeur: null, estimation: { texte: 'une trentaine', auteur: 'max' } })
+    expect(grille.find((l) => l.cle === 'vitesse')).toEqual({ cle: 'vitesse', valeur: null, estimation: null })
+    expect(grille.map((l) => l.cle)).toEqual(['nature', 'ca', 'pv', 'vitesse', 'caracteristiques', 'sauvegardes', 'competences', 'defenses', 'sens', 'langues'])
+  })
+})
+
+describe('grille des estimations', () => {
+  it("signale une valeur révélée à ce seul joueur", async () => {
+    const { grilleEstimations } = await import('../../src/domain/fiches.js')
+    const grille = grilleEstimations([facette(3, 'vitesse', '9 m', a(7))], {}, 7)
+    expect(grille.find((l) => l.cle === 'vitesse')).toEqual({ cle: 'vitesse', valeur: '9 m', estimation: null, pourMoiSeul: true })
+  })
+
+  it('donne la longueur maximale de chaque facette', async () => {
+    const { longueurMax } = await import('../../src/domain/fiches.js')
+    expect([longueurMax('role'), longueurMax('ca'), longueurMax('caracteristiques'), longueurMax('nom')]).toEqual([200, 120, 300, 80])
+  })
+})
+

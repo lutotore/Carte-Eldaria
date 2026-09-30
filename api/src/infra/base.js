@@ -169,6 +169,34 @@ export const MIGRATIONS = [
   );
   CREATE INDEX notes_par_fiche ON notes (fiche_id, cree_le);
   `,
+  // 5 — bestiaire : les fiches peuvent être des créatures, et les joueurs estiment leurs statistiques.
+  // SQLite ne sait pas modifier une contrainte CHECK : on reconstruit la table (clés étrangères suspendues le temps de l'opération).
+  {
+    sansClesEtrangeres: true,
+    tablesAVerifier: ['fiches', 'facettes', 'notes', 'estimations'],
+    sql: `
+    CREATE TABLE fiches_v5 (
+      id          INTEGER PRIMARY KEY,
+      campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+      type        TEXT NOT NULL CHECK (type IN ('pnj', 'creature')),
+      notes_mj    TEXT NOT NULL DEFAULT '',
+      cree_le     TEXT NOT NULL
+    );
+    INSERT INTO fiches_v5 (id, campagne_id, type, notes_mj, cree_le) SELECT id, campagne_id, type, notes_mj, cree_le FROM fiches;
+    DROP TABLE fiches;
+    ALTER TABLE fiches_v5 RENAME TO fiches;
+
+    -- Une estimation partagée par le groupe, par statistique de créature.
+    CREATE TABLE estimations (
+      fiche_id  INTEGER NOT NULL REFERENCES fiches(id) ON DELETE CASCADE,
+      cle       TEXT NOT NULL,
+      texte     TEXT NOT NULL,
+      auteur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+      maj_le    TEXT NOT NULL,
+      PRIMARY KEY (fiche_id, cle)
+    );
+    `,
+  },
 ]
 
 export function ouvrirBase(chemin) {
@@ -187,10 +215,22 @@ export function ouvrirBase(chemin) {
 function migrer(db) {
   const version = db.prepare('PRAGMA user_version').get().user_version
   for (let i = version; i < MIGRATIONS.length; i += 1) {
-    transaction(db, () => {
-      db.exec(MIGRATIONS[i])
-      db.exec(`PRAGMA user_version = ${i + 1}`)
-    })
+    const migration = typeof MIGRATIONS[i] === 'string' ? { sql: MIGRATIONS[i] } : MIGRATIONS[i]
+    // PRAGMA foreign_keys n'a d'effet qu'en dehors d'une transaction.
+    if (migration.sansClesEtrangeres) db.exec('PRAGMA foreign_keys = OFF')
+    try {
+      transaction(db, () => {
+        db.exec(migration.sql)
+        if (migration.sansClesEtrangeres) {
+          // Contrôle limité aux tables touchées : une vieille incohérence ailleurs ne bloque pas le démarrage.
+          const orphelins = migration.tablesAVerifier.flatMap((table) => db.prepare(`PRAGMA foreign_key_check(${table})`).all())
+          if (orphelins.length) throw new Error(`Migration ${i + 1} : ${orphelins.length} référence(s) cassée(s).`)
+        }
+        db.exec(`PRAGMA user_version = ${i + 1}`)
+      })
+    } finally {
+      if (migration.sansClesEtrangeres) db.exec('PRAGMA foreign_keys = ON')
+    }
   }
 }
 

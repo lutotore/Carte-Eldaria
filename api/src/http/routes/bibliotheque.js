@@ -12,10 +12,13 @@ export function routesBibliotheque(api, portail) {
   const vide = (reply) => reply.status(204).send()
   const corps = (request) => request.body ?? {}
 
-  api.get('/api/campagnes/:id/bibliotheque', connecte, async (request) => portail.bibliotheque(contexte(request)))
+  api.get('/api/campagnes/:id/bibliotheque', connecte, async (request) =>
+    portail.bibliotheque({ ...contexte(request), type: request.query.type ?? 'pnj' }))
 
-  api.post('/api/campagnes/:id/fiches', connecte, async (request, reply) =>
-    reply.status(201).send(portail.creerFiche({ ...contexte(request), nom: corps(request).nom })))
+  api.post('/api/campagnes/:id/fiches', connecte, async (request, reply) => {
+    const { nom, type } = corps(request)
+    return reply.status(201).send(portail.creerFiche({ ...contexte(request), nom, type }))
+  })
 
   api.get('/api/campagnes/:id/fiches/:ficheId', connecte, async (request) => portail.fiche(deFiche(request)))
 
@@ -38,6 +41,22 @@ export function routesBibliotheque(api, portail) {
   api.post('/api/campagnes/:id/fiches/:ficheId/secrets', connecte, async (request, reply) => {
     const { titre, texte } = corps(request)
     return reply.status(201).send(portail.ajouterSecret({ ...deFiche(request), titre, texte }))
+  })
+
+  // Élément titré ajouté à une fiche : secret, capacité, action ou réaction.
+  api.post('/api/campagnes/:id/fiches/:ficheId/elements', connecte, async (request, reply) => {
+    const { cle, titre, texte } = corps(request)
+    return reply.status(201).send(portail.ajouterTitree({ ...deFiche(request), cle, titre, texte }))
+  })
+
+  api.post('/api/campagnes/:id/fiches/:ficheId/revelation-totale', connecte, async (request, reply) => {
+    portail.revelerTout(deFiche(request))
+    return vide(reply)
+  })
+
+  api.put('/api/campagnes/:id/fiches/:ficheId/estimations/:cle', connecte, async (request, reply) => {
+    portail.estimer({ ...deFiche(request), cle: request.params.cle, texte: corps(request).texte })
+    return vide(reply)
   })
 
   api.put('/api/campagnes/:id/fiches/:ficheId/notes-mj', { ...connecte, bodyLimit: 256 * 1024 }, async (request, reply) => {

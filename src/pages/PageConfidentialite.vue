@@ -23,7 +23,8 @@ import { moi } from '../session.js'
         <li><strong>Ton rôle et ta date d'arrivée</strong> dans chaque campagne : ils déterminent ce que tu peux voir.</li>
         <li><strong>Tes sessions de connexion</strong> : leur date d'ouverture et d'expiration, pour te garder connecté·e sans redemander ton mot de passe.</li>
         <li><strong>Tes disponibilités</strong> (joueurs uniquement) : pour chaque date proposée, oui ou non et ta plage horaire, pour trouver une date qui convient à la table.</li>
-        <li><strong>Tes notes et croyances</strong> sur les personnages de la bibliothèque, que tu écris et choisis de garder privées ou de partager avec le groupe.</li>
+        <li><strong>Tes notes et croyances</strong> sur les personnages de la bibliothèque et les créatures du bestiaire, que tu écris et choisis de garder privées ou de partager avec le groupe.</li>
+        <li><strong>Tes estimations</strong> des statistiques d'une créature (« CA autour de 14 »), partagées avec le groupe et signées de ton identifiant.</li>
         <li><strong>Tes notifications</strong> : les messages du portail qui te sont adressés (sondage ouvert, séance fixée ou annulée) et s'ils ont été lus.</li>
         <li><strong>Ton adresse IP</strong>, uniquement en mémoire et pendant 15 minutes au plus, pour limiter les tentatives de connexion répétées. Elle n'est enregistrée ni dans la base ni dans les journaux du serveur.</li>
       </ul>
@@ -47,6 +48,7 @@ import { moi } from '../session.js'
         <li>Ton compte : jusqu'à ce que tu le supprimes. S'il ne fait plus partie d'aucune campagne, il est supprimé automatiquement dès l'expiration de ta dernière session, soit {{ DUREES.sessionJours }} jours au plus après ta dernière connexion.</li>
         <li>Les sessions : {{ DUREES.sessionJours }} jours, ou jusqu'à ta déconnexion.</li>
         <li>Les liens d'invitation et de réinitialisation : valables {{ DUREES.invitationJours }} et {{ DUREES.reinitialisationJours }} jours ; ils sont effacés au plus tard 24 heures après avoir servi ou expiré.</li>
+        <li>Tes estimations : jusqu'à ce qu'un joueur les remplace ou les efface, ou avec ton compte.</li>
         <li>Tes notes et croyances : jusqu'à ce que tu les supprimes, ou avec ton compte. Une croyance reportée dans le registre de la campagne y reste, sans ton identifiant.</li>
         <li>Tes disponibilités : {{ DUREES.disponibilitesJours }} jours après la dernière date proposée par le sondage.</li>
         <li>Les notifications : {{ DUREES.notificationsLuesJours }} jours après leur lecture, et {{ DUREES.notificationsJours }} jours au plus.</li>

@@ -42,6 +42,22 @@ export function creerDepotsBibliotheque(db) {
       },
     },
 
+    estimations: {
+      deLaFiche: (ficheId) => requete(`
+        SELECT e.cle, e.texte, u.identifiant AS auteur, e.maj_le AS majLe FROM estimations e
+        JOIN utilisateurs u ON u.id = e.auteur_id WHERE e.fiche_id = ?`).all(ficheId),
+      ecrire: ({ ficheId, cle, texte, auteurId, majLe }) => requete(`
+        INSERT INTO estimations (fiche_id, cle, texte, auteur_id, maj_le) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT (fiche_id, cle) DO UPDATE SET texte = excluded.texte, auteur_id = excluded.auteur_id, maj_le = excluded.maj_le`)
+        .run(ficheId, cle, texte, auteurId, majLe),
+      effacer: (ficheId, cle) => requete('DELETE FROM estimations WHERE fiche_id = ? AND cle = ?').run(ficheId, cle),
+      /** Pour l'export RGPD. */
+      de: (auteurId) => requete(`
+        SELECT e.fiche_id AS ficheId, f.campagne_id AS campagneId, c.nom AS campagne, e.cle, e.texte, e.maj_le AS majLe
+        FROM estimations e JOIN fiches f ON f.id = e.fiche_id JOIN campagnes c ON c.id = f.campagne_id
+        WHERE e.auteur_id = ? ORDER BY e.maj_le`).all(auteurId),
+    },
+
     images: {
       creer: ({ id, campagneId, typeMime, taille, creeLe }) => requete(`
         INSERT INTO images (id, campagne_id, type_mime, taille, cree_le) VALUES (?, ?, ?, ?, ?)`).run(id, campagneId, typeMime, taille, creeLe),

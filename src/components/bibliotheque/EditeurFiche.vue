@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api, envoyerPortrait } from '../../api/client.js'
 import { utiliserEnvoi } from '../../composables/envoi.js'
-import { ATTITUDES, LIBELLES_FACETTES, STATUTS } from '../../domain/fiches.js'
+import { ATTITUDES, LIBELLES_FACETTES, longueurMax, SECTIONS_TITREES, STATUTS, TITREES_PAR_TYPE } from '../../domain/fiches.js'
 import ControleRevelation from './ControleRevelation.vue'
 import Portrait from './Portrait.vue'
 
@@ -16,7 +16,9 @@ const router = useRouter()
 
 const { enCours, erreur, envoyer } = utiliserEnvoi()
 const enregistre = ref('')
-const nouveauSecret = ref({ titre: '', texte: '' })
+const titrees = TITREES_PAR_TYPE[props.fiche.type]
+const nouvelElement = ref({ cle: titrees[0], titre: '', texte: '' })
+const confirmerToutReveler = ref(false)
 const notesMj = ref(props.fiche.notesMj)
 const confirmerSuppression = ref(false)
 
@@ -36,11 +38,16 @@ const modifier = (facette, valeur, titre) => {
 }
 const reveler = (facette, { pourTous, joueurs }) => action(() => api.reveler(props.campagneId, props.fiche.id, facette.id, pourTous, joueurs), 'Révélation mise à jour ; les joueurs concernés sont prévenus.')
 const enregistrerNotesMj = () => notesMj.value !== props.fiche.notesMj && action(() => api.modifierNotesMj(props.campagneId, props.fiche.id, notesMj.value))
-const ajouterSecret = () => action(async () => {
-  await api.ajouterSecret(props.campagneId, props.fiche.id, nouveauSecret.value.titre, nouveauSecret.value.texte)
-  nouveauSecret.value = { titre: '', texte: '' }
-}, 'Secret ajouté (caché).')
-const supprimerSecret = (facette) => action(() => api.supprimerSecret(props.campagneId, props.fiche.id, facette.id), 'Secret supprimé.')
+const ajouterElement = () => action(async () => {
+  const { cle, titre, texte } = nouvelElement.value
+  await api.ajouterElement(props.campagneId, props.fiche.id, cle, titre, texte)
+  nouvelElement.value = { cle, titre: '', texte: '' }
+}, 'Ajouté (caché).')
+const supprimerElement = (facette) => action(() => api.supprimerSecret(props.campagneId, props.fiche.id, facette.id), 'Supprimé.')
+const toutReveler = () => action(async () => {
+  await api.revelerTout(props.campagneId, props.fiche.id)
+  confirmerToutReveler.value = false
+}, 'Tout ce qui est rempli est révélé au groupe ; les joueurs sont prévenus.')
 
 function televerser(evenement) {
   const fichier = evenement.target.files?.[0]
@@ -55,18 +62,28 @@ function televerser(evenement) {
 
 const supprimerFiche = () => envoyer(async () => {
   await api.supprimerFiche(props.campagneId, props.fiche.id)
-  await router.replace({ name: 'bibliotheque', params: { id: props.campagneId } })
+  await router.replace({ name: props.fiche.type === 'creature' ? 'bestiaire' : 'bibliotheque', params: { id: props.campagneId } })
 })
 
-const facettesFixes = () => props.fiche.facettes.filter((f) => f.cle !== 'secret')
-const secrets = () => props.fiche.facettes.filter((f) => f.cle === 'secret')
+const facettesFixes = () => props.fiche.facettes.filter((f) => !titrees.includes(f.cle))
+const elementsDe = (cle) => props.fiche.facettes.filter((f) => f.cle === cle)
+const estimation = (cle) => props.fiche.estimations?.[cle] ?? null
+const TEXTES_LONGS = ['description']
 </script>
 
 <template>
   <section class="editeur papier epingle" aria-labelledby="titre-fiche">
-    <p class="petites-capitales">Fiche du MJ</p>
+    <p class="petites-capitales">{{ fiche.type === 'creature' ? 'Créature' : 'PNJ' }} — fiche du MJ</p>
     <h1 id="titre-fiche">{{ fiche.facettes.find((f) => f.cle === 'nom').valeur }}</h1>
     <p class="aide">Chaque information est cachée tant que tu ne la révèles pas, au groupe ou à certains joueurs. Les notes du MJ ne sont jamais montrées.</p>
+    <div class="tout-reveler">
+      <button v-if="!confirmerToutReveler" type="button" class="bouton" @click="confirmerToutReveler = true">Tout révéler au groupe…</button>
+      <span v-else class="confirmer-vert">
+        Révéler au groupe tout ce qui est rempli (sauf tes notes MJ) ?
+        <button type="button" class="bouton bouton--plein" :disabled="enCours" @click="toutReveler">Oui, tout révéler</button>
+        <button type="button" class="lien-bouton" @click="confirmerToutReveler = false">Non</button>
+      </span>
+    </div>
     <p class="statut" aria-live="polite">
       <span v-if="erreur" class="message message--erreur">{{ erreur }}</span>
       <span v-else-if="enregistre" class="message message--ok">{{ enregistre }}</span>
@@ -85,27 +102,35 @@ const secrets = () => props.fiche.facettes.filter((f) => f.cle === 'secret')
           <option value="">—</option>
           <option v-for="o in (f.cle === 'attitude' ? ATTITUDES : STATUTS)" :key="o.cle" :value="o.cle">{{ o.nom }}</option>
         </select>
-        <textarea v-else-if="f.cle === 'description'" :value="f.valeur" rows="4" maxlength="4000" :aria-label="LIBELLES_FACETTES[f.cle]" @change="modifier(f, $event.target.value)" />
-        <input v-else type="text" :value="f.valeur" :maxlength="f.cle === 'nom' ? 80 : 200" :aria-label="LIBELLES_FACETTES[f.cle]" @change="modifier(f, $event.target.value)">
+        <textarea v-else-if="TEXTES_LONGS.includes(f.cle)" :value="f.valeur" rows="4" maxlength="4000" :aria-label="LIBELLES_FACETTES[f.cle]" @change="modifier(f, $event.target.value)" />
+        <input v-else type="text" :value="f.valeur" :maxlength="longueurMax(f.cle)" :aria-label="LIBELLES_FACETTES[f.cle]" @change="modifier(f, $event.target.value)">
       </div>
+      <p v-if="estimation(f.cle)" class="estimation-joueurs">Estimation des joueurs : « {{ estimation(f.cle).texte }} » ({{ estimation(f.cle).auteur }})</p>
       <ControleRevelation :revelations="f.revelations" :joueurs="fiche.joueurs" :vide="!f.valeur" :en-cours="enCours" @changer="reveler(f, $event)" />
     </div>
 
-    <h2>Secrets</h2>
-    <div v-for="f in secrets()" :key="f.id" class="facette secret">
-      <div class="saisie">
-        <input type="text" :value="f.titre" maxlength="80" aria-label="Titre du secret" @change="modifier(f, f.valeur, $event.target.value)">
-        <textarea :value="f.valeur" rows="3" maxlength="4000" aria-label="Texte du secret" @change="modifier(f, $event.target.value)" />
+    <template v-for="cle in titrees" :key="cle">
+      <h2>{{ SECTIONS_TITREES[cle] }}</h2>
+      <p v-if="!elementsDe(cle).length" class="aide">Aucun pour l'instant.</p>
+      <div v-for="f in elementsDe(cle)" :key="f.id" class="facette secret">
+        <div class="saisie">
+          <input type="text" :value="f.titre" maxlength="80" :aria-label="`Titre : ${LIBELLES_FACETTES[cle]}`" @change="modifier(f, f.valeur, $event.target.value)">
+          <textarea :value="f.valeur" rows="3" maxlength="4000" :aria-label="`Texte : ${LIBELLES_FACETTES[cle]}`" @change="modifier(f, $event.target.value)" />
+        </div>
+        <div class="pied-secret">
+          <ControleRevelation :revelations="f.revelations" :joueurs="fiche.joueurs" :en-cours="enCours" @changer="reveler(f, $event)" />
+          <button type="button" class="lien-bouton supprimer" @click="supprimerElement(f)">Supprimer</button>
+        </div>
       </div>
-      <div class="pied-secret">
-        <ControleRevelation :revelations="f.revelations" :joueurs="fiche.joueurs" :en-cours="enCours" @changer="reveler(f, $event)" />
-        <button type="button" class="lien-bouton supprimer" @click="supprimerSecret(f)">Supprimer ce secret</button>
-      </div>
-    </div>
-    <form class="nouveau-secret" @submit.prevent="ajouterSecret">
-      <input v-model="nouveauSecret.titre" type="text" maxlength="80" placeholder="Titre du secret" required aria-label="Titre du nouveau secret">
-      <textarea v-model="nouveauSecret.texte" rows="2" maxlength="4000" placeholder="Ce que les joueurs pourront découvrir" required aria-label="Texte du nouveau secret" />
-      <button type="submit" class="bouton" :disabled="enCours">Ajouter un secret</button>
+    </template>
+    <form class="nouveau-secret" @submit.prevent="ajouterElement">
+      <h2>Ajouter</h2>
+      <select v-if="titrees.length > 1" v-model="nouvelElement.cle" aria-label="Type d'élément">
+        <option v-for="cle in titrees" :key="cle" :value="cle">{{ LIBELLES_FACETTES[cle] }}</option>
+      </select>
+      <input v-model="nouvelElement.titre" type="text" maxlength="80" placeholder="Titre" required aria-label="Titre du nouvel élément">
+      <textarea v-model="nouvelElement.texte" rows="2" maxlength="4000" placeholder="Texte (ce que les joueurs pourront découvrir)" required aria-label="Texte du nouvel élément" />
+      <button type="submit" class="bouton" :disabled="enCours">Ajouter (caché)</button>
     </form>
 
     <h2>Notes du MJ</h2>
@@ -143,6 +168,9 @@ textarea { resize: vertical; }
 .notes-mj { min-height: 8rem; }
 .supprimer { color: var(--rouge); }
 .danger { display: flex; justify-content: flex-end; margin-top: 0.6rem; }
+.tout-reveler { display: flex; }
+.confirmer-vert { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; color: var(--vert); }
+.estimation-joueurs { margin: 0; font-size: var(--t-s); font-style: italic; color: var(--cristal); }
 .confirmer { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; color: var(--rouge); }
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>

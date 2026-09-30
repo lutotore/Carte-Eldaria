@@ -78,3 +78,29 @@ describe('bibliothèque par HTTP', () => {
     expect((await requete(app, { method: 'DELETE', url: `${base}/notes/${noteId}`, cookie: cookieLea })).statusCode).toBe(204)
   })
 })
+
+describe('bestiaire par HTTP', () => {
+  it('crée une créature, ajoute une action, révèle tout, et les joueurs estiment', async () => {
+    const { app, cookieTom, cookieLea, base } = await avecFiche()
+    const creation = await requete(app, { method: 'POST', url: `${base}/fiches`, cookie: cookieTom, payload: { nom: 'Stryge', type: 'creature' } })
+    expect(creation.statusCode).toBe(201)
+    const { ficheId } = creation.json()
+    const ajout = await requete(app, { method: 'POST', url: `${base}/fiches/${ficheId}/elements`, cookie: cookieTom, payload: { cle: 'action', titre: 'Absorption', texte: 'Elle s’accroche.' } })
+    expect(ajout.statusCode).toBe(201)
+
+    const liste = await requete(app, { url: `${base}/bibliotheque?type=creature`, cookie: cookieTom })
+    expect(liste.json().fiches.map((f) => f.nom)).toEqual(['Stryge'])
+
+    expect((await requete(app, { method: 'POST', url: `${base}/fiches/${ficheId}/revelation-totale`, cookie: cookieTom })).statusCode).toBe(204)
+    const estimation = await requete(app, { method: 'PUT', url: `${base}/fiches/${ficheId}/estimations/ca`, cookie: cookieLea, payload: { texte: 'autour de 14' } })
+    expect(estimation.statusCode).toBe(204)
+    const vue = (await requete(app, { url: `${base}/fiches/${ficheId}`, cookie: cookieLea })).json()
+    expect(vue.grille.find((l) => l.cle === 'ca').estimation.texte).toBe('autour de 14')
+    expect(vue.fiche.facettes.map((f) => f.cle)).toEqual(['action'])
+  })
+
+  it('refuse un type inconnu dans la liste', async () => {
+    const { app, cookieTom, base } = await avecFiche()
+    expect((await requete(app, { url: `${base}/bibliotheque?type=dragon`, cookie: cookieTom })).statusCode).toBe(400)
+  })
+})

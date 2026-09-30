@@ -1,12 +1,29 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { api } from '../api/client.js'
 import Portrait from '../components/bibliotheque/Portrait.vue'
 import { utiliserEnvoi } from '../composables/envoi.js'
 import { ATTITUDES, valeurLisible } from '../domain/fiches.js'
 
-const props = defineProps({ id: { type: String, required: true } })
+const props = defineProps({
+  id: { type: String, required: true },
+  type: { type: String, default: 'pnj' },
+})
+
+const TEXTES = {
+  pnj: {
+    titre: 'Bibliothèque', route: 'fiche', inconnu: 'Personnage inconnu', nouveau: 'Nouveau PNJ',
+    mj: 'Tous les PNJ de la campagne. Les joueurs ne voient que ce que tu révèles.', joueur: 'Les personnages croisés par la Compagnie, et ce que vous savez d’eux.',
+    videMj: 'Aucun PNJ pour l’instant.', videJoueur: 'Aucun personnage connu pour l’instant.',
+  },
+  creature: {
+    titre: 'Bestiaire', route: 'creature', inconnu: 'Créature inconnue', nouveau: 'Nouvelle créature',
+    mj: 'Toutes les créatures de la campagne. Les joueurs ne voient que ce que tu révèles.', joueur: 'Les créatures affrontées, et ce que vous en avez appris.',
+    videMj: 'Aucune créature pour l’instant.', videJoueur: 'Aucune créature connue pour l’instant.',
+  },
+}
+const textes = computed(() => TEXTES[props.type])
 const router = useRouter()
 
 const donnees = ref(null)
@@ -15,7 +32,18 @@ const attitude = ref('')
 const nouveauNom = ref('')
 const { enCours, erreur, envoyer } = utiliserEnvoi()
 
-onMounted(() => envoyer(async () => { donnees.value = await api.bibliotheque(props.id) }))
+/** Chargement hors de `envoyer` : un changement d'onglet ne doit jamais être ignoré, ni afficher la mauvaise liste. */
+async function charger() {
+  const type = props.type
+  try {
+    const reponse = await api.bibliotheque(props.id, type)
+    if (type === props.type) donnees.value = reponse
+  } catch (e) {
+    if (type === props.type) erreur.value = e.message
+  }
+}
+onMounted(charger)
+watch(() => props.type, () => { donnees.value = null; recherche.value = ''; attitude.value = ''; charger() })
 
 const LIBELLES_REVELATION = { cache: 'Caché', partiel: 'En partie révélé', revele: 'Révélé' }
 
@@ -23,7 +51,7 @@ const LIBELLES_REVELATION = { cache: 'Caché', partiel: 'En partie révélé', r
 function resume(fiche) {
   if (donnees.value.estMj) return fiche
   const valeur = (cle) => fiche.facettes.find((f) => f.cle === cle)?.valeur ?? ''
-  return { ...fiche, role: valeur('role'), attitude: valeur('attitude') }
+  return { ...fiche, role: valeur(props.type === 'creature' ? 'nature' : 'role'), attitude: valeur('attitude') }
 }
 
 const fiches = computed(() => {
@@ -34,41 +62,41 @@ const fiches = computed(() => {
 })
 
 const creer = () => envoyer(async () => {
-  const { ficheId } = await api.creerFiche(props.id, nouveauNom.value)
-  await router.push({ name: 'fiche', params: { id: props.id, ficheId } })
+  const { ficheId } = await api.creerFiche(props.id, nouveauNom.value, props.type)
+  await router.push({ name: textes.value.route, params: { id: props.id, ficheId } })
 })
 </script>
 
 <template>
   <main class="bibliotheque">
     <header class="entete">
-      <h1>Bibliothèque</h1>
-      <p class="sous-titre">{{ donnees?.estMj ? 'Tous les PNJ de la campagne. Les joueurs ne voient que ce que tu révèles.' : 'Les personnages croisés par la Compagnie, et ce que vous savez d’eux.' }}</p>
+      <h1>{{ textes.titre }}</h1>
+      <p class="sous-titre">{{ donnees?.estMj ? textes.mj : textes.joueur }}</p>
     </header>
 
     <div class="outils">
       <label class="champ">Rechercher <input v-model="recherche" type="search" placeholder="Nom, rôle…"></label>
-      <label class="champ">Attitude
+      <label v-if="type === 'pnj'" class="champ">Attitude
         <select v-model="attitude">
           <option value="">Toutes</option>
           <option v-for="a in ATTITUDES" :key="a.cle" :value="a.cle">{{ a.nom }}</option>
         </select>
       </label>
       <form v-if="donnees?.estMj" class="nouveau" @submit.prevent="creer">
-        <label class="champ">Nouveau PNJ <input v-model="nouveauNom" type="text" maxlength="80" placeholder="Nom" required></label>
+        <label class="champ">{{ textes.nouveau }} <input v-model="nouveauNom" type="text" maxlength="80" placeholder="Nom" required></label>
         <button type="submit" class="bouton bouton--plein" :disabled="enCours">Créer</button>
       </form>
     </div>
 
     <p v-if="erreur" class="message message--erreur" role="alert">{{ erreur }}</p>
-    <p v-if="donnees && !donnees.fiches.length" class="vide">{{ donnees.estMj ? 'Aucun PNJ pour l’instant.' : 'Aucun personnage connu pour l’instant.' }}</p>
+    <p v-if="donnees && !donnees.fiches.length" class="vide">{{ donnees.estMj ? textes.videMj : textes.videJoueur }}</p>
 
     <ul class="grille">
       <li v-for="f in fiches" :key="f.id">
-        <RouterLink :to="{ name: 'fiche', params: { id, ficheId: f.id } }" class="carte papier">
+        <RouterLink :to="{ name: textes.route, params: { id, ficheId: f.id } }" class="carte papier">
           <Portrait :campagne-id="id" :image-id="f.portrait" :nom="f.nom ?? ''" />
           <div class="texte">
-            <strong>{{ f.nom ?? 'Personnage inconnu' }}</strong>
+            <strong>{{ f.nom ?? textes.inconnu }}</strong>
             <span v-if="f.role" class="role">{{ f.role }}</span>
             <span class="marques">
               <span v-if="f.attitude" class="tampon" :class="`tampon--attitude-${f.attitude}`">{{ valeurLisible('attitude', f.attitude) }}</span>

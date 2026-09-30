@@ -51,6 +51,33 @@ describe('base de données', () => {
     migree.close()
   })
 
+  it('reconstruit la table des fiches (migration 5) sans rien perdre ni casser les liens', () => {
+    dossier = mkdtempSync(join(tmpdir(), 'eldaria-'))
+    const chemin = join(dossier, 'v4.db')
+    const ancienne = new DatabaseSync(chemin)
+    ancienne.exec('PRAGMA foreign_keys = ON')
+    for (const migration of MIGRATIONS.slice(0, 4)) ancienne.exec(migration)
+    ancienne.exec('PRAGMA user_version = 4')
+    ancienne.exec(`
+      INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('lea', 'x', 'd');
+      INSERT INTO campagnes (nom, cree_le) VALUES ('Eldaria', 'd');
+      INSERT INTO fiches (campagne_id, type, notes_mj, cree_le) VALUES (1, 'pnj', 'secret', 'd');
+      INSERT INTO facettes (fiche_id, cle, valeur, ordre) VALUES (1, 'nom', 'Pip', 1);
+      INSERT INTO notes (fiche_id, auteur_id, type, visibilite, texte, cree_le, maj_le) VALUES (1, 1, 'note', 'privee', 'hm', 'd', 'd');
+    `)
+    ancienne.close()
+
+    const migree = ouvrirBase(chemin)
+    expect(migree.prepare('SELECT type, notes_mj AS notesMj FROM fiches').get()).toEqual({ type: 'pnj', notesMj: 'secret' })
+    expect(migree.prepare("INSERT INTO fiches (campagne_id, type, cree_le) VALUES (1, 'creature', 'd')").run().changes).toBe(1)
+    expect(() => migree.prepare("INSERT INTO facettes (fiche_id, cle, valeur, ordre) VALUES (999, 'nom', 'x', 1)").run()).toThrow()
+    migree.prepare('DELETE FROM fiches WHERE id = 1').run()
+    expect(migree.prepare('SELECT COUNT(*) AS n FROM facettes').get().n).toBe(0)
+    expect(migree.prepare('SELECT COUNT(*) AS n FROM notes').get().n).toBe(0)
+    expect(migree.prepare('PRAGMA foreign_keys').get().foreign_keys).toBe(1)
+    migree.close()
+  })
+
   it('refuse un rôle inconnu', () => {
     const db = ouvrirBase(':memory:')
     db.prepare("INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('tom', 'x', 'd')").run()
