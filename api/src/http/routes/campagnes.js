@@ -6,11 +6,13 @@ export function routesCampagnes(api, portail, config) {
 
   api.get('/api/campagnes/:id/monde', connecte, async (request) => portail.lireMonde(contexte(request)))
 
+  // Le monde voyage avec son numéro de version, dans le corps : un proxy ne peut pas l'altérer
+  // (Caddy modifie l'en-tête ETag quand il compresse la réponse).
   api.get('/api/campagnes/:id/etat', connecte, async (request) => portail.lireEtat(contexte(request)))
 
-  api.put('/api/campagnes/:id/etat', { ...connecte, bodyLimit: 5 * 1024 * 1024 }, async (request, reply) => {
-    portail.ecrireEtat({ ...contexte(request), etat: request.body })
-    return reply.status(204).send()
+  api.put('/api/campagnes/:id/etat', { ...connecte, bodyLimit: 5 * 1024 * 1024 }, async (request) => {
+    const { etat, version } = request.body ?? {}
+    return portail.ecrireEtat({ ...contexte(request), etat, versionAttendue: version })
   })
 
   api.get('/api/campagnes/:id/membres', connecte, async (request) => portail.membres(contexte(request)))

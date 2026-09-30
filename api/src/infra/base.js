@@ -62,6 +62,10 @@ export const MIGRATIONS = [
     maj_le      TEXT NOT NULL
   );
   `,
+  // 2 — verrou optimiste : chaque écriture du monde incrémente sa version.
+  `
+  ALTER TABLE etats_campagne ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
+  `,
 ]
 
 export function ouvrirBase(chemin) {

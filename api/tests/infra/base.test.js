@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { afterEach, describe, expect, it } from 'vitest'
 import { MIGRATIONS, ouvrirBase } from '../../src/infra/base.js'
 
@@ -32,6 +33,22 @@ describe('base de données', () => {
     const seconde = ouvrirBase(chemin)
     expect(seconde.prepare('SELECT nom FROM campagnes').all()).toHaveLength(1)
     seconde.close()
+  })
+
+  it('migre une base existante sans perdre le monde déjà enregistré', () => {
+    dossier = mkdtempSync(join(tmpdir(), 'eldaria-'))
+    const chemin = join(dossier, 'ancienne.db')
+    // Base telle qu'elle est en production après la première mise en ligne (migration 1 seule).
+    const ancienne = new DatabaseSync(chemin)
+    ancienne.exec(MIGRATIONS[0])
+    ancienne.exec('PRAGMA user_version = 1')
+    ancienne.prepare("INSERT INTO campagnes (nom, cree_le) VALUES ('Eldaria', 'd')").run()
+    ancienne.prepare("INSERT INTO etats_campagne (campagne_id, contenu, maj_le) VALUES (1, '{\"horloge\":3}', 'd')").run()
+    ancienne.close()
+
+    const migree = ouvrirBase(chemin)
+    expect(migree.prepare('SELECT contenu, version FROM etats_campagne').get()).toEqual({ contenu: '{"horloge":3}', version: 1 })
+    migree.close()
   })
 
   it('refuse un rôle inconnu', () => {

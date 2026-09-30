@@ -52,21 +52,61 @@ describe('story 8 : le MJ voit et modifie toute la vérité', () => {
   it('lit l’état complet, secrets compris', async () => {
     const { portail, campagneId, tomId, mjId } = await tableComplete()
     for (const demandeurId of [tomId, mjId]) {
-      expect(portail.lireEtat({ demandeurId, campagneId }).iles.aeronis.notesMJ).toBe('SECRET-NOTE')
+      expect(portail.lireEtat({ demandeurId, campagneId }).etat.iles.aeronis.notesMJ).toBe('SECRET-NOTE')
     }
   })
 
   it('enregistre un nouvel état, que les joueurs voient aussitôt', async () => {
     const { portail, campagneId, mjId, joueurId } = await tableComplete()
-    const etat = etatExemple()
+    const { etat, version } = portail.lireEtat({ demandeurId: mjId, campagneId })
     etat.iles.cachee.revelee = true
-    portail.ecrireEtat({ demandeurId: mjId, campagneId, etat })
+    portail.ecrireEtat({ demandeurId: mjId, campagneId, etat, versionAttendue: version })
     expect(portail.lireMonde({ demandeurId: joueurId, campagneId }).iles.map((i) => i.id)).toEqual(['aeronis', 'cachee'])
   })
 
   it('refuse un état incomplet sans rien écraser', async () => {
     const { portail, campagneId, tomId } = await tableComplete()
-    expect(() => portail.ecrireEtat({ demandeurId: tomId, campagneId, etat: { horloge: 4 } })).toThrow(expect.objectContaining({ code: 'requete_invalide' }))
-    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).horloge).toBe(3)
+    const { version } = portail.lireEtat({ demandeurId: tomId, campagneId })
+    expect(() => portail.ecrireEtat({ demandeurId: tomId, campagneId, etat: { horloge: 4 }, versionAttendue: version })).toThrow(expect.objectContaining({ code: 'requete_invalide' }))
+    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).etat.horloge).toBe(3)
   })
 })
+
+describe("deux MJ ne s'écrasent pas l'un l'autre (verrou optimiste)", () => {
+  it('numérote chaque version du monde', async () => {
+    const { portail, campagneId, tomId } = await tableComplete()
+    const lu = portail.lireEtat({ demandeurId: tomId, campagneId })
+    const { version } = portail.ecrireEtat({ demandeurId: tomId, campagneId, etat: lu.etat, versionAttendue: lu.version })
+    expect(version).toBe(lu.version + 1)
+    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).version).toBe(version)
+  })
+
+  it("refuse d'écrire sur une version que quelqu'un a modifiée entre-temps", async () => {
+    const { portail, campagneId, tomId, mjId } = await tableComplete()
+    const chezTom = portail.lireEtat({ demandeurId: tomId, campagneId })
+    const chezCoMj = portail.lireEtat({ demandeurId: mjId, campagneId })
+
+    chezCoMj.etat.horloge = 5
+    portail.ecrireEtat({ demandeurId: mjId, campagneId, etat: chezCoMj.etat, versionAttendue: chezCoMj.version })
+
+    chezTom.etat.horloge = 4
+    expect(() => portail.ecrireEtat({ demandeurId: tomId, campagneId, etat: chezTom.etat, versionAttendue: chezTom.version }))
+      .toThrow(expect.objectContaining({ code: 'conflit' }))
+    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).etat.horloge).toBe(5)
+  })
+
+  it('exige de dire sur quelle version on travaille', async () => {
+    const { portail, campagneId, tomId } = await tableComplete()
+    const { etat } = portail.lireEtat({ demandeurId: tomId, campagneId })
+    expect(() => portail.ecrireEtat({ demandeurId: tomId, campagneId, etat })).toThrow(expect.objectContaining({ code: 'requete_invalide' }))
+  })
+
+  it("fait passer un import à une nouvelle version : les tables ouvertes ne l'écraseront pas", async () => {
+    const { portail, campagneId, tomId } = await tableComplete()
+    const avant = portail.lireEtat({ demandeurId: tomId, campagneId })
+    portail.importerEtat(campagneId, etatExemple())
+    expect(() => portail.ecrireEtat({ demandeurId: tomId, campagneId, etat: avant.etat, versionAttendue: avant.version }))
+      .toThrow(expect.objectContaining({ code: 'conflit' }))
+  })
+})
+

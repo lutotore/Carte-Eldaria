@@ -46,8 +46,10 @@ export const api = {
   reinitialiser: (jeton, motDePasse) => appeler('POST', `/api/reinitialisations/${encodeURIComponent(jeton)}`, { motDePasse }),
 
   monde: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/monde`),
+  /** Le monde complet et son numéro de version : { etat, version }. */
   etat: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/etat`),
-  enregistrerEtat: (campagneId, etat) => appeler('PUT', `/api/campagnes/${campagneId}/etat`, etat),
+  /** Refusé (409, code « conflit ») si un autre MJ a enregistré depuis la version indiquée. */
+  enregistrerEtat: (campagneId, etat, version) => appeler('PUT', `/api/campagnes/${campagneId}/etat`, { etat, version }),
 
   membres: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/membres`),
   inviter: (campagneId, role) => appeler('POST', `/api/campagnes/${campagneId}/invitations`, { role }),

@@ -20,8 +20,8 @@ export function cookieDe(reponse) {
 }
 
 /** Requête d'un navigateur légitime : même origine, cookie de session éventuel. */
-export function requete(app, { method = 'GET', url, cookie, payload }) {
-  const headers = { origin: ORIGINE }
+export function requete(app, { method = 'GET', url, cookie, payload, entetes = {} }) {
+  const headers = { origin: ORIGINE, ...entetes }
   if (cookie) headers.cookie = cookie
   return app.inject({ method, url, headers, payload })
 }

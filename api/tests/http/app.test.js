@@ -72,7 +72,7 @@ describe('parcours complet', () => {
 
     expect((await requete(app, { url: `/api/campagnes/${campagneId}/etat`, cookie: cookieLea })).statusCode).toBe(403)
     const etat = await requete(app, { url: `/api/campagnes/${campagneId}/etat`, cookie: cookieTom })
-    expect(etat.json().iles.aeronis.notesMJ).toBe('SECRET-NOTE')
+    expect(etat.json().etat.iles.aeronis.notesMJ).toBe('SECRET-NOTE')
   })
 
   it("donne un lien d'invitation complet, sur le domaine du portail", async () => {
@@ -133,13 +133,29 @@ describe('parcours complet', () => {
     expect((await requete(app, { url: '/api/moi', cookie: cookieLea })).statusCode).toBe(401)
   })
 
-  it('le MJ enregistre un nouvel état', async () => {
+  it('le MJ enregistre un nouvel état en rappelant la version lue', async () => {
     const { app, cookieTom, campagneId } = await appDeTest()
-    const etat = (await requete(app, { url: `/api/campagnes/${campagneId}/etat`, cookie: cookieTom })).json()
+    const url = `/api/campagnes/${campagneId}/etat`
+    const { etat, version } = (await requete(app, { url, cookie: cookieTom })).json()
+    expect(Number.isInteger(version)).toBe(true)
     etat.horloge = 4
-    const reponse = await requete(app, { method: 'PUT', url: `/api/campagnes/${campagneId}/etat`, cookie: cookieTom, payload: etat })
-    expect(reponse.statusCode).toBe(204)
-    expect((await requete(app, { url: `/api/campagnes/${campagneId}/etat`, cookie: cookieTom })).json().horloge).toBe(4)
+
+    const ecriture = await requete(app, { method: 'PUT', url, cookie: cookieTom, payload: { etat, version } })
+    expect(ecriture.statusCode).toBe(200)
+    expect(ecriture.json()).toEqual({ version: version + 1 })
+    expect((await requete(app, { url, cookie: cookieTom })).json().etat.horloge).toBe(4)
+
+    const perimee = await requete(app, { method: 'PUT', url, cookie: cookieTom, payload: { etat, version } })
+    expect(perimee.statusCode).toBe(409)
+    expect(perimee.json().code).toBe('conflit')
+  })
+
+  it("refuse une écriture qui ne dit pas quelle version elle remplace", async () => {
+    const { app, cookieTom, campagneId } = await appDeTest()
+    const url = `/api/campagnes/${campagneId}/etat`
+    const { etat } = (await requete(app, { url, cookie: cookieTom })).json()
+    const reponse = await requete(app, { method: 'PUT', url, cookie: cookieTom, payload: { etat } })
+    expect(reponse.statusCode).toBe(400)
   })
 
   it('répond 404 pour un identifiant de campagne qui n’est pas un nombre', async () => {

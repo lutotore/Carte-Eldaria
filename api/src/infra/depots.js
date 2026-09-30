@@ -67,10 +67,15 @@ export function creerDepots(db) {
     },
 
     etats: {
-      lire: (campagneId) => requete('SELECT contenu FROM etats_campagne WHERE campagne_id = ?').get(campagneId)?.contenu,
+      lire: (campagneId) => requete('SELECT contenu, version FROM etats_campagne WHERE campagne_id = ?').get(campagneId),
+      /** Écrase sans condition (import en ligne de commande) et passe à la version suivante. */
       ecrire: (campagneId, contenu, majLe) => requete(`
-        INSERT INTO etats_campagne (campagne_id, contenu, maj_le) VALUES (?, ?, ?)
-        ON CONFLICT (campagne_id) DO UPDATE SET contenu = excluded.contenu, maj_le = excluded.maj_le`).run(campagneId, contenu, majLe),
+        INSERT INTO etats_campagne (campagne_id, contenu, maj_le, version) VALUES (?, ?, ?, 1)
+        ON CONFLICT (campagne_id) DO UPDATE SET contenu = excluded.contenu, maj_le = excluded.maj_le, version = version + 1`).run(campagneId, contenu, majLe),
+      /** N'écrit que si la version en base est toujours celle attendue ; renvoie vrai si c'est le cas. */
+      remplacerSiVersion: (campagneId, contenu, majLe, versionAttendue) => Number(requete(`
+        UPDATE etats_campagne SET contenu = ?, maj_le = ?, version = version + 1
+        WHERE campagne_id = ? AND version = ?`).run(contenu, majLe, campagneId, versionAttendue).changes) === 1,
     },
 
     /** Données périmées : les garder n'apporterait rien et le RGPD demande de ne pas conserver sans raison. */

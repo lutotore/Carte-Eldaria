@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { appeler, ErreurApi } from '../../src/api/client.js'
+import { api, appeler, ErreurApi } from '../../src/api/client.js'
 
 function repondre(statut, corps) {
   return vi.fn(async () => new Response(corps === undefined ? null : JSON.stringify(corps), {
@@ -40,5 +40,12 @@ describe("client de l'API", () => {
     vi.stubGlobal('fetch', vi.fn(async () => { throw new TypeError('Failed to fetch') }))
     const erreur = await appeler('GET', '/api/moi').catch((e) => e)
     expect(erreur).toMatchObject({ statut: 0, code: 'reseau' })
+  })
+
+  it('envoie le monde avec la version sur laquelle on a travaillé', async () => {
+    const fetch = repondre(200, { version: 8 })
+    vi.stubGlobal('fetch', fetch)
+    expect(await api.enregistrerEtat(1, { horloge: 4 }, 7)).toEqual({ version: 8 })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ etat: { horloge: 4 }, version: 7 })
   })
 })

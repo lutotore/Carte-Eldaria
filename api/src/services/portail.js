@@ -54,15 +54,16 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
     return { jeton, expireLe }
   }
 
-  function lireEtatBrut(campagneId) {
-    const contenu = depots.etats.lire(campagneId)
-    exiger(contenu, erreurs.mondeAbsent())
-    return JSON.parse(contenu)
+  function lireEtatVersionne(campagneId) {
+    const ligne = depots.etats.lire(campagneId)
+    exiger(ligne, erreurs.mondeAbsent())
+    return { etat: JSON.parse(ligne.contenu), version: ligne.version }
   }
 
-  function enregistrerEtat(campagneId, etat) {
+  const lireEtatBrut = (campagneId) => lireEtatVersionne(campagneId).etat
+
+  function exigerEtatValide(etat) {
     exiger(estUnEtatValide(etat), erreurs.requeteInvalide("État du monde incomplet : rien n'a été écrit."))
-    depots.etats.ecrire(campagneId, JSON.stringify(etat), iso())
   }
 
   async function exigerMotDePasseActuel(utilisateurId, motDePasse) {
@@ -211,20 +212,31 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
       return versPublic(lireEtatBrut(campagneId))
     },
 
+    /** Renvoie le monde et son numéro de version, à rappeler lors de l'écriture. */
     lireEtat({ demandeurId, campagneId }) {
       exiger(estMj(roleDans(demandeurId, campagneId)), erreurs.interdit())
-      return lireEtatBrut(campagneId)
+      return lireEtatVersionne(campagneId)
     },
 
-    ecrireEtat({ demandeurId, campagneId, etat }) {
+    /**
+     * Verrou optimiste : l'écriture ne passe que si personne n'a modifié le monde depuis la lecture.
+     * Sinon, le second MJ est prévenu au lieu d'écraser en silence le travail du premier.
+     */
+    ecrireEtat({ demandeurId, campagneId, etat, versionAttendue }) {
       exiger(estMj(roleDans(demandeurId, campagneId)), erreurs.interdit())
-      enregistrerEtat(campagneId, etat)
+      exiger(Number.isInteger(versionAttendue), erreurs.requeteInvalide("Version du monde manquante : rien n'a été écrit."))
+      exigerEtatValide(etat)
+      lireEtatVersionne(campagneId) // monde absent : message clair plutôt qu'un faux conflit
+      const ecrit = depots.etats.remplacerSiVersion(campagneId, JSON.stringify(etat), iso(), versionAttendue)
+      exiger(ecrit, erreurs.conflit())
+      return { version: versionAttendue + 1 }
     },
 
     /** Reprise du fichier mj/etat.json (ligne de commande, sur le serveur). */
     importerEtat(campagneId, etat) {
       exiger(depots.campagnes.parId(campagneId), erreurs.introuvable('Campagne'))
-      enregistrerEtat(campagneId, etat)
+      exigerEtatValide(etat)
+      depots.etats.ecrire(campagneId, JSON.stringify(etat), iso())
     },
 
     /** Sauvegarde en ligne de commande. */

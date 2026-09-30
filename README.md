@@ -97,9 +97,13 @@ se lisent comme le cahier des charges : `api/tests/services/comptes.test.js` sui
 - Les durées de conservation annoncées dans `src/legal.js` doivent rester alignées sur l'API
   (`DUREES_JOURS` dans `api/src/services/portail.js`) et sur la rétention des sauvegardes.
 
+## Plusieurs MJ en même temps
+
+Chaque enregistrement de la table du MJ rappelle la **version** du monde sur laquelle il a été fait.
+Si un autre MJ a enregistré entre-temps, l'API refuse (409) au lieu d'écraser son travail, et la table
+propose de recharger la campagne. C'est un *verrou optimiste* : personne n'est bloqué tant qu'il n'y a pas de conflit.
+
 ## Limites connues
 
-- Si deux MJ modifient la table du MJ **en même temps**, le dernier enregistrement l'emporte.
-  À traiter avant que le co-MJ ne prépare en parallèle (verrou optimiste : version de l'état vérifiée à l'écriture).
 - Les joueurs voient les changements en rechargeant la carte, ou en revenant sur l'onglet.
   Le temps réel (SSE) viendra avec un lot suivant.

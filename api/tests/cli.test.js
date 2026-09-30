@@ -29,7 +29,7 @@ describe('ligne de commande du serveur', () => {
     const { portail } = portailDeTest()
     const { campagneId, tomId } = await campagneAvecProprietaire(portail)
     await lancer(portail, ['importer-etat', String(campagneId)], JSON.stringify(etatExemple()))
-    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).horloge).toBe(3)
+    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).etat.horloge).toBe(3)
     expect(JSON.parse(await lancer(portail, ['exporter-etat', String(campagneId)])).iles.aeronis.nom).toBe('Aéronis')
   })
 
@@ -37,7 +37,7 @@ describe('ligne de commande du serveur', () => {
     const { portail } = portailDeTest()
     const { campagneId, tomId } = await campagneAvecProprietaire(portail)
     await lancer(portail, ['importer-etat', String(campagneId), 'mj/etat.json'], '', { 'mj/etat.json': JSON.stringify(etatExemple()) })
-    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).session).toBe(2)
+    expect(portail.lireEtat({ demandeurId: tomId, campagneId }).etat.session).toBe(2)
   })
 
   it('dépanne un propriétaire qui a perdu son mot de passe', async () => {

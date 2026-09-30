@@ -17,6 +17,7 @@ const STATUT_PAR_CODE = {
   lien_inconnu: 404,
   identifiant_pris: 409,
   deja_membre: 409,
+  conflit: 409,
   lien_utilise: 410,
   lien_expire: 410,
   trop_de_tentatives: 429,

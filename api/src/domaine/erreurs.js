@@ -15,6 +15,7 @@ export const erreurs = {
   interdit: () => new ErreurMetier('interdit', "Tu n'as pas les droits pour faire ça."),
   introuvable: (quoi = 'Élément') => new ErreurMetier('introuvable', `${quoi} introuvable.`),
   mondeAbsent: () => new ErreurMetier('introuvable', "Le monde de cette campagne n'a pas encore été importé par le MJ."),
+  conflit: () => new ErreurMetier('conflit', 'Un autre MJ a modifié la campagne entre-temps. Recharge la table pour voir ses changements.'),
   identifiantsIncorrects: () => new ErreurMetier('identifiants_incorrects', 'Identifiant ou mot de passe incorrect.'),
   identifiantPris: () => new ErreurMetier('identifiant_pris', 'Cet identifiant est déjà pris.'),
   dejaMembre: () => new ErreurMetier('deja_membre', 'Ce compte fait déjà partie de la campagne.'),
