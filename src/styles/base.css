@@ -54,6 +54,8 @@ button { cursor: pointer; }
     inset 0 0 70px rgba(130, 85, 30, 0.22);
 }
 .papier :focus-visible { outline-color: var(--rouge); }
+/* Sur le papier, les contrôles natifs (cases, heures, dates) doivent être clairs. */
+.papier { color-scheme: light; }
 
 /* Punaises de laiton aux coins d'une feuille. */
 .epingle::before,

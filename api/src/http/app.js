@@ -6,6 +6,7 @@ import { DUREES_JOURS } from '../services/portail.js'
 import { routesCampagnes } from './routes/campagnes.js'
 import { routesLiens } from './routes/liens.js'
 import { routesMoi } from './routes/moi.js'
+import { routesPlanning } from './routes/planning.js'
 import { routesSession } from './routes/session.js'
 
 const STATUT_PAR_CODE = {
@@ -107,6 +108,7 @@ export function construireApp({ portail, config }) {
     routesMoi(api, portail)
     routesLiens(api, portail, config)
     routesCampagnes(api, portail, config)
+    routesPlanning(api, portail)
   })
 
   return app

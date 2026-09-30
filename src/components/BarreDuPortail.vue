@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { campagneDe, estMj, estProprietaire } from '../api/droits.js'
 import { fermerSession, moi } from '../session.js'
+import Cloche from './Cloche.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -24,11 +25,13 @@ async function deconnexion() {
       <span class="marque">{{ campagne?.nom ?? 'Eldaria' }}</span>
       <template v-if="campagne">
         <RouterLink :to="{ name: 'carte', params: { id: campagne.id } }" exact-active-class="actif">Carte</RouterLink>
+        <RouterLink :to="{ name: 'seances', params: { id: campagne.id } }" active-class="actif">Séances</RouterLink>
         <RouterLink v-if="estMj(campagne)" :to="{ name: 'mj', params: { id: campagne.id } }" active-class="actif">Table du MJ</RouterLink>
         <RouterLink v-if="estProprietaire(campagne)" :to="{ name: 'membres', params: { id: campagne.id } }" active-class="actif">Membres</RouterLink>
       </template>
     </nav>
     <div class="compte">
+      <Cloche />
       <RouterLink to="/compte" active-class="actif">{{ moi.identifiant }}</RouterLink>
       <button type="button" class="deconnexion" @click="deconnexion">Se déconnecter</button>
     </div>
@@ -46,7 +49,8 @@ async function deconnexion() {
   border-bottom: 1px dashed var(--couture);
   background: rgba(0, 0, 0, 0.18);
 }
-.navigation, .compte { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1.1rem; }
+.navigation { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 1.1rem; }
+.compte { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1.1rem; }
 .marque { font-family: var(--f-titre); font-size: 1.25rem; color: var(--laiton-clair); text-decoration: none; }
 .retour { font-size: var(--t-s); }
 a { color: #e8d6b0; text-decoration: none; border-bottom: 1px solid transparent; }

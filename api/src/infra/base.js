@@ -66,6 +66,59 @@ export const MIGRATIONS = [
   `
   ALTER TABLE etats_campagne ADD COLUMN version INTEGER NOT NULL DEFAULT 1;
   `,
+  // 3 — planification des séances et notifications dans le portail.
+  `
+  CREATE TABLE sondages (
+    id          INTEGER PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    lieu        TEXT NOT NULL DEFAULT '',
+    date_limite TEXT,
+    statut      TEXT NOT NULL CHECK (statut IN ('ouvert', 'clos', 'annule')),
+    cree_le     TEXT NOT NULL
+  );
+  -- Un seul sondage ouvert par campagne, garanti par la base elle-même.
+  CREATE UNIQUE INDEX un_sondage_ouvert_par_campagne ON sondages (campagne_id) WHERE statut = 'ouvert';
+
+  CREATE TABLE sondage_dates (
+    id         INTEGER PRIMARY KEY,
+    sondage_id INTEGER NOT NULL REFERENCES sondages(id) ON DELETE CASCADE,
+    jour       TEXT NOT NULL,
+    UNIQUE (sondage_id, jour)
+  );
+
+  CREATE TABLE disponibilites (
+    date_id        INTEGER NOT NULL REFERENCES sondage_dates(id) ON DELETE CASCADE,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    disponible     INTEGER NOT NULL CHECK (disponible IN (0, 1)),
+    debut          INTEGER,
+    fin            INTEGER,
+    repondu_le     TEXT NOT NULL,
+    PRIMARY KEY (date_id, utilisateur_id),
+    CHECK ((disponible = 1 AND debut IS NOT NULL AND fin > debut) OR (disponible = 0 AND debut IS NULL AND fin IS NULL))
+  );
+
+  CREATE TABLE seances (
+    id          INTEGER PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    jour        TEXT NOT NULL,
+    debut       INTEGER NOT NULL,
+    fin         INTEGER NOT NULL CHECK (fin > debut),
+    lieu        TEXT NOT NULL DEFAULT '',
+    statut      TEXT NOT NULL DEFAULT 'prevue' CHECK (statut IN ('prevue', 'annulee')),
+    fixee_le    TEXT NOT NULL
+  );
+
+  CREATE TABLE notifications (
+    id             INTEGER PRIMARY KEY,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    campagne_id    INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    texte          TEXT NOT NULL,
+    lien           TEXT NOT NULL,
+    cree_le        TEXT NOT NULL,
+    lue_le         TEXT
+  );
+  CREATE INDEX notifications_par_utilisateur ON notifications (utilisateur_id, cree_le);
+  `,
 ]
 
 export function ouvrirBase(chemin) {

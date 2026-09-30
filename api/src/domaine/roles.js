@@ -9,3 +9,7 @@ export const estMj = (role) => role === 'proprietaire' || role === 'mj'
 
 /** Invite, retire des membres et réinitialise leurs mots de passe. */
 export const peutGererMembres = (role) => role === 'proprietaire'
+
+/** Seuls les joueurs réguliers répondent aux sondages de dates ; les occasionnels ne les voient pas. */
+export const repondAuxSondages = (role) => role === 'joueur'
+export const voitLesSondages = (role) => estMj(role) || repondAuxSondages(role)

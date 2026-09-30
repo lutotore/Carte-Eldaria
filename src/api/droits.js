@@ -10,3 +10,4 @@ export function campagneDe(moi, id) {
 
 export const estMj = (campagne) => campagne?.role === 'proprietaire' || campagne?.role === 'mj'
 export const estProprietaire = (campagne) => campagne?.role === 'proprietaire'
+export const repondAuxSondages = (campagne) => campagne?.role === 'joueur'

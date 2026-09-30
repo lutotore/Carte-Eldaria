@@ -8,6 +8,7 @@ import { creerDepots } from '../infra/depots.js'
 import { transaction } from '../infra/base.js'
 import { empreinteJeton, genererJeton } from '../securite/jetons.js'
 import { hacherMotDePasse, verifierMotDePasse } from '../securite/motsDePasse.js'
+import { creerPlanning } from './planning.js'
 
 export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
 
@@ -17,6 +18,7 @@ export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
  */
 export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse = {} }) {
   const depots = creerDepots(db)
+  const planningDeLaCampagne = creerPlanning({ db, depots, maintenant })
   const iso = () => maintenant().toISOString()
   const hacher = (motDePasse) => hacherMotDePasse(motDePasse, coutMotDePasse)
 
@@ -203,7 +205,10 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
       exigerProprietaire(demandeurId, campagneId)
       exiger(cibleId !== demandeurId, erreurs.requeteInvalide('Le propriétaire ne peut pas se retirer de sa propre campagne.'))
       exiger(roleDans(cibleId, campagneId), erreurs.introuvable('Membre'))
-      depots.participations.retirer(cibleId, campagneId)
+      transaction(db, () => {
+        depots.participations.retirer(cibleId, campagneId)
+        planningDeLaCampagne.oublierNotificationsDe(cibleId, campagneId)
+      })
     },
 
     // --- Stories 7 et 8 : le monde de la campagne ---
@@ -268,6 +273,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         compte: { identifiant: utilisateur.identifiant, creeLe: utilisateur.cree_le },
         campagnes: depots.participations.campagnesDe(utilisateurId).map(({ nom, role, rejointLe }) => ({ nom, role, rejointLe })),
         sessions: depots.sessions.resumeDe(utilisateurId),
+        ...planningDeLaCampagne.donneesPlanningDe(utilisateurId),
       }
     },
 
@@ -282,7 +288,10 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
     },
 
     purger() {
-      return depots.purger(iso())
+      return depots.purger(iso()) + planningDeLaCampagne.purgerPlanning()
     },
+
+    // --- Lot 2 : planification des séances et notifications (voir services/planning.js) ---
+    ...planningDeLaCampagne,
   }
 }

@@ -22,6 +22,8 @@ import { moi } from '../session.js'
         <li><strong>L'empreinte de ton mot de passe</strong> : le mot de passe lui-même n'est jamais conservé, seulement une empreinte calculée avec l'algorithme scrypt, dont on ne peut pas retrouver le mot de passe.</li>
         <li><strong>Ton rôle et ta date d'arrivée</strong> dans chaque campagne : ils déterminent ce que tu peux voir.</li>
         <li><strong>Tes sessions de connexion</strong> : leur date d'ouverture et d'expiration, pour te garder connecté·e sans redemander ton mot de passe.</li>
+        <li><strong>Tes disponibilités</strong> (joueurs uniquement) : pour chaque date proposée, oui ou non et ta plage horaire, pour trouver une date qui convient à la table.</li>
+        <li><strong>Tes notifications</strong> : les messages du portail qui te sont adressés (sondage ouvert, séance fixée ou annulée) et s'ils ont été lus.</li>
         <li><strong>Ton adresse IP</strong>, uniquement en mémoire et pendant 15 minutes au plus, pour limiter les tentatives de connexion répétées. Elle n'est enregistrée ni dans la base ni dans les journaux du serveur.</li>
       </ul>
       <p>Aucune adresse e-mail, aucun nom réel, aucune donnée de paiement ne sont demandés.</p>
@@ -33,6 +35,7 @@ import { moi } from '../session.js'
       <h2>Qui peut les voir ?</h2>
       <ul>
         <li>Les MJ de ta campagne voient ton identifiant, ton rôle et ta date d'arrivée.</li>
+        <li>Les réponses à un sondage de dates sont visibles des MJ et des autres joueurs réguliers de la campagne, comme sur un sondage de dates classique.</li>
         <li>L'hébergeur, {{ HEBERGEUR.nom }}, stocke les données sur ses serveurs situés en France, pour le compte de l'éditeur.</li>
         <li>Les données ne quittent pas l'Union européenne et ne sont ni vendues, ni louées, ni utilisées à des fins publicitaires.</li>
       </ul>
@@ -42,6 +45,8 @@ import { moi } from '../session.js'
         <li>Ton compte : jusqu'à ce que tu le supprimes. S'il ne fait plus partie d'aucune campagne, il est supprimé automatiquement dès l'expiration de ta dernière session, soit {{ DUREES.sessionJours }} jours au plus après ta dernière connexion.</li>
         <li>Les sessions : {{ DUREES.sessionJours }} jours, ou jusqu'à ta déconnexion.</li>
         <li>Les liens d'invitation et de réinitialisation : valables {{ DUREES.invitationJours }} et {{ DUREES.reinitialisationJours }} jours ; ils sont effacés au plus tard 24 heures après avoir servi ou expiré.</li>
+        <li>Tes disponibilités : {{ DUREES.disponibilitesJours }} jours après la dernière date proposée par le sondage.</li>
+        <li>Les notifications : {{ DUREES.notificationsLuesJours }} jours après leur lecture, et {{ DUREES.notificationsJours }} jours au plus.</li>
         <li>Les copies de sauvegarde, qui protègent la campagne contre une panne : {{ DUREES.sauvegardesMois }} mois au plus. Une donnée supprimée disparaît donc des sauvegardes au bout de ce délai.</li>
       </ul>
 
@@ -80,6 +85,11 @@ import { moi } from '../session.js'
           </tbody>
         </table>
       </div>
+      <p>
+        Les boutons « Ajouter à Google Agenda » sont de simples liens : rien n'est transmis à Google tant que tu ne cliques pas.
+        Si tu cliques, la date, l'horaire, le nom de la campagne et le lieu de la séance sont envoyés à Google, selon ses propres règles de confidentialité.
+        Le fichier « .ics », lui, est fabriqué directement dans ton navigateur.
+      </p>
       <p>Aucun cookie de mesure d'audience, de publicité ou de réseau social n'est utilisé, et aucune ressource n'est chargée depuis un autre site : les polices de caractères sont hébergées ici. Tu peux supprimer ces éléments à tout moment dans les réglages de ton navigateur ; supprimer le cookie de session revient à te déconnecter.</p>
     </article>
   </main>

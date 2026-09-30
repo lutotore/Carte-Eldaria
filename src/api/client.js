@@ -56,6 +56,15 @@ export const api = {
   retirerMembre: (campagneId, membreId) => appeler('DELETE', `/api/campagnes/${campagneId}/membres/${membreId}`),
   lienReinitialisation: (campagneId, membreId) => appeler('POST', `/api/campagnes/${campagneId}/membres/${membreId}/reinitialisation`),
 
+  planning: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/planning`),
+  ouvrirSondage: (campagneId, sondage) => appeler('POST', `/api/campagnes/${campagneId}/sondages`, sondage),
+  repondre: (campagneId, sondageId, reponses) => appeler('PUT', `/api/campagnes/${campagneId}/sondages/${sondageId}/reponses`, { reponses }),
+  fixerSeance: (campagneId, sondageId, seance) => appeler('POST', `/api/campagnes/${campagneId}/sondages/${sondageId}/seance`, seance),
+  annulerSondage: (campagneId, sondageId) => appeler('DELETE', `/api/campagnes/${campagneId}/sondages/${sondageId}`),
+  annulerSeance: (campagneId, seanceId) => appeler('DELETE', `/api/campagnes/${campagneId}/seances/${seanceId}`),
+  notifications: () => appeler('GET', '/api/notifications'),
+  marquerNotificationsLues: () => appeler('POST', '/api/notifications/lues'),
+
   changerMotDePasse: (actuel, nouveau) => appeler('PUT', '/api/moi/mot-de-passe', { actuel, nouveau }),
   supprimerCompte: (motDePasse) => appeler('POST', '/api/moi/suppression', { motDePasse }),
 }

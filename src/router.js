@@ -14,6 +14,7 @@ const routes = [
   { path: '/', name: 'accueil', component: page('PageAccueil'), meta: { connecte: true, titre: 'Mes campagnes' } },
   { path: '/compte', name: 'compte', component: page('PageCompte'), meta: { connecte: true, titre: 'Mon compte' } },
   { path: '/campagne/:id', name: 'carte', component: page('PageCarte'), props: true, meta: { connecte: true, membre: true, titre: 'Carte' } },
+  { path: '/campagne/:id/seances', name: 'seances', component: page('PageSeances'), props: true, meta: { connecte: true, membre: true, titre: 'Séances' } },
   { path: '/campagne/:id/mj', name: 'mj', component: () => import('./mj/TableDuMj.vue'), props: true, meta: { connecte: true, mj: true, titre: 'Table du MJ' } },
   { path: '/campagne/:id/membres', name: 'membres', component: page('PageMembres'), props: true, meta: { connecte: true, proprietaire: true, titre: 'Membres' } },
 
