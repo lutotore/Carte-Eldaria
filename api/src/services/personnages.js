@@ -221,7 +221,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
         const marqueId = persos.marques.creer({ personnageId: personnage.id, ...marque, le: iso() })
         notifications.creer({
           utilisateurId: personnage.utilisateurId, campagneId, texte: `Une Marque du Rêve apparaît sur ta fiche : ${marque.titre}.`,
-          lien: `/campagne/${campagneId}/personnage`, creeLe: iso(),
+          lien: `/campagne/${campagneId}/personnage`, categorie: 'personnage', creeLe: iso(),
         })
         return { marqueId }
       })
@@ -295,7 +295,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
         if (statut !== 'ouvert' || butin.statut === 'ouvert') return
         for (const joueur of joueursDe(campagneId)) {
           notifications.creer({
-            utilisateurId: joueur.id, campagneId, texte: `Butin à partager : ${butin.titre}.`, lien: `/campagne/${campagneId}/butins`, creeLe: iso(),
+            utilisateurId: joueur.id, campagneId, texte: `Butin à partager : ${butin.titre}.`, lien: `/campagne/${campagneId}/butins`, categorie: 'personnage', creeLe: iso(),
           })
         }
       })

@@ -315,6 +315,44 @@ export const MIGRATIONS = [
   );
   CREATE INDEX evenements_campagne ON evenements (campagne_id, jour);
   `,
+  // 9 — notifications sur les appareils (push) : catégories, choix de chacun, abonnements, rappels déjà envoyés.
+  `
+  ALTER TABLE notifications ADD COLUMN categorie TEXT NOT NULL DEFAULT 'seances';
+  -- 1 tant que la notification n'est pas passée par l'envoi push (les anciennes n'y passent jamais).
+  ALTER TABLE notifications ADD COLUMN push_a_envoyer INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX notifications_push_en_attente ON notifications (id) WHERE push_a_envoyer = 1;
+
+  -- Une ligne par catégorie coupée : sans ligne, la catégorie est reçue.
+  CREATE TABLE preferences_push (
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    categorie      TEXT NOT NULL,
+    PRIMARY KEY (utilisateur_id, categorie)
+  );
+
+  -- Un appareil (navigateur) qui a accepté les notifications.
+  CREATE TABLE abonnements_push (
+    id             INTEGER PRIMARY KEY,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    adresse        TEXT NOT NULL UNIQUE,
+    cle_p256dh     TEXT NOT NULL,
+    cle_auth       TEXT NOT NULL,
+    appareil       TEXT NOT NULL DEFAULT '',
+    cree_le        TEXT NOT NULL,
+    dernier_envoi_le TEXT
+  );
+
+  -- Rappels de séance et relances de sondage déjà partis (« seance:4:veille », « sondage:2 »).
+  CREATE TABLE rappels_envoyes (
+    cle TEXT PRIMARY KEY,
+    le  TEXT NOT NULL
+  );
+
+  -- Réglages du serveur créés une fois pour toutes (clés VAPID des notifications push).
+  CREATE TABLE reglages (
+    cle    TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL
+  );
+  `,
 ]
 
 export function ouvrirBase(chemin) {

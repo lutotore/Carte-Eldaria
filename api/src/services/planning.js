@@ -1,4 +1,5 @@
 import { decrireSeance } from '../../../src/domain/agenda.js'
+import { rappelsAnterieurs, rappelsDus, relanceDue, texteRappel } from '../../../src/domain/notifications.js'
 import {
   classerDates, creneauCommun, enHeure, erreurJour, jourAParis, lirePlage, MAX_DATES,
 } from '../../../src/domain/planning.js'
@@ -49,11 +50,12 @@ export function creerPlanning({ db, depots, maintenant }) {
   function notifier(campagneId, destinataires, texte) {
     const lien = `/campagne/${campagneId}/seances`
     for (const membre of destinataires) {
-      planning.notifications.creer({ utilisateurId: membre.id, campagneId, texte, lien, creeLe: iso() })
+      planning.notifications.creer({ utilisateurId: membre.id, campagneId, texte, lien, categorie: 'seances', creeLe: iso() })
     }
   }
 
   const membres = (campagneId) => depots.participations.membresDe(campagneId)
+  const LONGUEUR_ANNONCE = 500
   const joueursDe = (campagneId) => membres(campagneId).filter((m) => repondAuxSondages(m.role))
   const tousSauf = (campagneId, demandeurId) => membres(campagneId).filter((m) => m.id !== demandeurId)
   const campagneNom = (campagneId) => depots.campagnes.parId(campagneId).nom
@@ -71,7 +73,8 @@ export function creerPlanning({ db, depots, maintenant }) {
         fin: r.fin,
       }))
       const plages = pourCetteDate.filter((r) => r.disponible)
-      return { id, jour, reponses: pourCetteDate, disponibles: plages.length, creneau: creneauCommun(plages) }
+      return {
+ id, jour, reponses: pourCetteDate, disponibles: plages.length, creneau: creneauCommun(plages) }
     })
     const meilleure = classerDates(dates.filter((d) => d.disponibles > 0))[0]
     return {
@@ -86,6 +89,76 @@ export function creerPlanning({ db, depots, maintenant }) {
   }
 
   return {
+    /**
+     * Rappels de séance (la veille à 18 h, deux heures avant) et relance des sondages (la veille de la date limite).
+     * Appelé chaque minute par le serveur ; renvoie le nombre de rappels envoyés.
+     */
+    envoyerRappels() {
+      const instant = maintenant()
+      let envoyes = 0
+      transaction(db, () => {
+        const hier = jourAParis(new Date(instant.getTime() - JOUR_MS))
+        for (const seance of planning.seances.prevuesDepuis(hier)) {
+          // L'heure de création fait partie de la clé : SQLite peut redonner l'identifiant d'une séance supprimée.
+          const prefixe = `seance:${seance.id}:${seance.fixeeLe}:`
+          const deja = planning.rappels.envoyes(prefixe).map((cle) => cle.slice(prefixe.length))
+          for (const sorte of rappelsDus(seance, instant, deja)) {
+            const lien = `/campagne/${seance.campagneId}/seances`
+            for (const membre of membres(seance.campagneId)) {
+              planning.notifications.creer({ utilisateurId: membre.id, campagneId: seance.campagneId, texte: texteRappel(seance, sorte), lien, categorie: 'seances', creeLe: iso() })
+            }
+            for (const passe of rappelsAnterieurs(sorte)) planning.rappels.noter(`${prefixe}${passe}`, iso())
+            envoyes += 1
+          }
+        }
+        for (const sondage of planning.sondages.ouvertsAvecLimite()) {
+          const cle = `sondage:${sondage.id}:${sondage.creeLe}`
+          if (!relanceDue(sondage, instant, planning.rappels.envoyes(cle).includes(cle))) continue
+          const ontRepondu = new Set(planning.disponibilites.duSondage(sondage.id).map((r) => r.utilisateurId))
+          const jour = new Intl.DateTimeFormat('fr-FR', { timeZone: 'UTC', day: 'numeric', month: 'long' }).format(new Date(`${sondage.dateLimite}T00:00:00Z`))
+          for (const joueur of joueursDe(sondage.campagneId).filter((j) => !ontRepondu.has(j.id))) {
+            planning.notifications.creer({
+              utilisateurId: joueur.id, campagneId: sondage.campagneId, texte: `Le sondage de dates se ferme demain (${jour}) : pense à donner tes disponibilités.`,
+              lien: `/campagne/${sondage.campagneId}/seances`, categorie: 'seances', creeLe: iso(),
+            })
+          }
+          planning.rappels.noter(cle, iso())
+          envoyes += 1
+        }
+      })
+      return envoyes
+    },
+
+    /** Ce que la table du MJ vient de rendre visible sur la carte (nouvelle, mission, île) : les joueurs sont prévenus. */
+    annoncerNouveautesDeLaCarte(campagneId, textes) {
+      for (const texte of textes) {
+        for (const membre of membres(campagneId).filter((m) => !estMj(m.role))) {
+          planning.notifications.creer({ utilisateurId: membre.id, campagneId, texte, lien: `/campagne/${campagneId}`, categorie: 'carte', creeLe: iso() })
+        }
+      }
+    },
+
+    /** Message libre d'un MJ, au groupe entier (« tous ») ou à certains membres, signé de son identifiant. */
+    envoyerAnnonce({ demandeurId, campagneId, texte, destinataires }) {
+      exigerMj(demandeurId, campagneId)
+      const message = String(texte ?? '').trim()
+      exiger(message && message.length <= LONGUEUR_ANNONCE, erreurs.requeteInvalide(`Écris un message (${LONGUEUR_ANNONCE} caractères au plus).`))
+      const ids = new Set(membres(campagneId).map((m) => m.id))
+      const cibles = destinataires === 'tous'
+        ? [...ids].filter((id) => id !== demandeurId)
+        : (Array.isArray(destinataires) ? [...new Set(destinataires)] : [])
+      exiger(cibles.length > 0 && cibles.every((id) => ids.has(id)), erreurs.requeteInvalide('Choisis à qui envoyer le message, parmi les membres de la campagne.'))
+      const auteur = depots.utilisateurs.parId(demandeurId).identifiant
+      transaction(db, () => {
+        for (const utilisateurId of cibles) {
+          planning.notifications.creer({
+            utilisateurId, campagneId, texte: `Message de ${auteur} : ${message}`, lien: `/campagne/${campagneId}`, categorie: 'annonces', creeLe: iso(),
+          })
+        }
+      })
+      return { destinataires: cibles.length }
+    },
+
     /** Ce que la page « Séances » affiche : prochaine séance et sondage en cours (sauf pour les occasionnels). */
     planning({ demandeurId, campagneId }) {
       const role = roleDans(demandeurId, campagneId)
@@ -212,6 +285,7 @@ export function creerPlanning({ db, depots, maintenant }) {
 
     purgerPlanning() {
       const il = (jours) => new Date(maintenant().getTime() - jours * JOUR_MS)
+      planning.rappels.purger(il(CONSERVATION_JOURS.notifications).toISOString())
       return planning.purger({
         jourLimiteSondages: jourAParis(il(CONSERVATION_JOURS.reponses)),
         luesAvant: il(CONSERVATION_JOURS.notificationsLues).toISOString(),

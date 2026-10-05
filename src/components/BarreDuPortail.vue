@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { campagneDe, estMj, estProprietaire } from '../api/droits.js'
 import { fermerSession, moi } from '../session.js'
+import { couperSurCetAppareil } from '../composables/push.js'
 import Cloche from './Cloche.vue'
 
 const route = useRoute()
@@ -13,6 +14,8 @@ const plusieursCampagnes = computed(() => (moi.value?.campagnes.length ?? 0) > 1
 
 // On quitte d'abord la page : elle n'a plus à s'afficher sans compte connecté.
 async function deconnexion() {
+  // Un appareil dont on se déconnecte ne reçoit plus les notifications de ce compte (pensé pour un ordinateur partagé).
+  await couperSurCetAppareil().catch(() => {})
   await router.push({ name: 'connexion' })
   await fermerSession()
 }

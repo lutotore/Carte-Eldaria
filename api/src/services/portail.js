@@ -1,3 +1,4 @@
+import { nouveautesDuMonde } from '../../../src/domain/notifications.js'
 import { versPublic } from '../../../src/domain/projection.js'
 import { erreurs } from '../domaine/erreurs.js'
 import { estUnEtatValide } from '../domaine/etat.js'
@@ -11,6 +12,7 @@ import { hacherMotDePasse, verifierMotDePasse } from '../securite/motsDePasse.js
 import { creerBibliotheque } from './bibliotheque.js'
 import { creerCalendrier } from './calendrier.js'
 import { creerPersonnages } from './personnages.js'
+import { creerPush, envoyeurWebPush } from './push.js'
 import { creerPlanning } from './planning.js'
 
 export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
@@ -19,12 +21,15 @@ export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
  * Cas d'usage du portail. Chaque méthode vérifie elle-même les droits du demandeur :
  * la couche HTTP ne fait que traduire, elle ne décide de rien.
  */
-export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse = {}, images }) {
+export function creerPortail({
+  db, maintenant = () => new Date(), coutMotDePasse = {}, images, envoyeurPush = envoyeurWebPush({ contact: 'mailto:inconnu@invalid' }), delaiEnvoiPushMs,
+}) {
   const depots = creerDepots(db)
   const planningDeLaCampagne = creerPlanning({ db, depots, maintenant })
   const bibliothequeDeLaCampagne = creerBibliotheque({ db, depots, maintenant, images })
   const personnagesDeLaCampagne = creerPersonnages({ db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne })
   const calendrierDeLaCampagne = creerCalendrier({ db, depots, maintenant })
+  const pushDuPortail = creerPush({ db, maintenant, envoyeur: envoyeurPush, delaiEnvoiMs: delaiEnvoiPushMs })
   const iso = () => maintenant().toISOString()
   const hacher = (motDePasse) => hacherMotDePasse(motDePasse, coutMotDePasse)
 
@@ -241,8 +246,11 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
       exiger(Number.isInteger(versionAttendue), erreurs.requeteInvalide("Version du monde manquante : rien n'a été écrit."))
       exigerEtatValide(etat)
       lireEtatVersionne(campagneId) // monde absent : message clair plutôt qu'un faux conflit
-      const ecrit = depots.etats.remplacerSiVersion(campagneId, JSON.stringify(etat), iso(), versionAttendue)
-      exiger(ecrit, erreurs.conflit())
+      const avant = versPublic(lireEtatBrut(campagneId))
+      transaction(db, () => {
+        exiger(depots.etats.remplacerSiVersion(campagneId, JSON.stringify(etat), iso(), versionAttendue), erreurs.conflit())
+        planningDeLaCampagne.annoncerNouveautesDeLaCarte(campagneId, nouveautesDuMonde(avant, versPublic(etat)))
+      })
       return { version: versionAttendue + 1 }
     },
 
@@ -286,6 +294,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         ...bibliothequeDeLaCampagne.donneesBibliothequeDe(utilisateurId),
         ...personnagesDeLaCampagne.donneesPersonnagesDe(utilisateurId),
         ...calendrierDeLaCampagne.donneesCalendrierDe(utilisateurId),
+        ...pushDuPortail.donneesPushDe(utilisateurId),
       }
     },
 
@@ -308,6 +317,9 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
 
     // --- Lot 3 : bibliothèque de PNJ (voir services/bibliotheque.js) ---
     ...bibliothequeDeLaCampagne,
+
+    // --- Notifications sur les appareils (voir services/push.js) ---
+    ...pushDuPortail,
 
     // --- Calendrier du monde (voir services/calendrier.js) ---
     ...calendrierDeLaCampagne,

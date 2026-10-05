@@ -122,6 +122,14 @@ Le calendrier d'Eldaria (12 mois de 30 jours en trois décades, puis 5 Jours Bla
 comme un nombre de jours depuis le 1er Primevent de l'an 0. La date butoir de la catastrophe reste visible des seuls MJ
 tant qu'elle n'est pas révélée.
 
+## Notifications
+
+Chaque notification du portail apparaît sous la cloche et part aussi, en push, sur les appareils que le membre a activés
+dans « Mon compte », selon les catégories qu'il a choisies. Le serveur envoie la file toutes les dix secondes et les
+rappels (séance, sondage) chaque minute (`api/src/serveur.js`). Les clés VAPID sont créées à la première utilisation et
+gardées dans la base : rien à configurer. Le serveur n'envoie qu'aux services push connus des navigateurs
+(`estAdressePushAutorisee`, `src/domain/notifications.js`).
+
 ## Plusieurs MJ en même temps
 
 Chaque enregistrement de la table du MJ rappelle la **version** du monde sur laquelle il a été fait.

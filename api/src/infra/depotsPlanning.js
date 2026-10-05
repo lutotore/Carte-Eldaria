@@ -1,3 +1,5 @@
+import { CLES_CATEGORIES } from '../../../src/domain/notifications.js'
+
 /** Accès aux tables de la planification et des notifications. */
 export function creerDepotsPlanning(db) {
   const requete = (sql) => db.prepare(sql)
@@ -14,6 +16,9 @@ export function creerDepotsPlanning(db) {
         SELECT id, lieu, date_limite AS dateLimite, statut FROM sondages WHERE id = ? AND campagne_id = ?`).get(sondageId, campagneId),
       dates: (sondageId) => requete('SELECT id, jour FROM sondage_dates WHERE sondage_id = ? ORDER BY jour').all(sondageId),
       changerStatut: (sondageId, statut) => requete('UPDATE sondages SET statut = ? WHERE id = ?').run(statut, sondageId),
+      /** Pour les relances : les sondages ouverts de toutes les campagnes qui ont une date limite. */
+      ouvertsAvecLimite: () => requete(`
+        SELECT id, campagne_id AS campagneId, date_limite AS dateLimite, cree_le AS creeLe FROM sondages WHERE statut = 'ouvert' AND date_limite IS NOT NULL`).all(),
     },
 
     disponibilites: {
@@ -51,18 +56,32 @@ export function creerDepotsPlanning(db) {
       parId: (seanceId, campagneId) => requete(`
         SELECT id, jour, debut, fin, lieu, statut FROM seances WHERE id = ? AND campagne_id = ?`).get(seanceId, campagneId),
       annuler: (seanceId) => requete("UPDATE seances SET statut = 'annulee' WHERE id = ?").run(seanceId),
+      /** Pour les rappels : les séances prévues de toutes les campagnes, à partir d'un jour. */
+      prevuesDepuis: (jour) => requete(`
+        SELECT id, campagne_id AS campagneId, jour, debut, fin, lieu, fixee_le AS fixeeLe FROM seances WHERE statut = 'prevue' AND jour >= ? ORDER BY jour`).all(jour),
     },
 
     notifications: {
-      creer: ({ utilisateurId, campagneId, texte, lien, creeLe }) => requete(`
-        INSERT INTO notifications (utilisateur_id, campagne_id, texte, lien, cree_le) VALUES (?, ?, ?, ?, ?)`)
-        .run(utilisateurId, campagneId, texte, lien, creeLe),
+      /** Toute notification part aussi en push, aux appareils et selon les choix de chacun (voir services/push.js). */
+      creer: ({ utilisateurId, campagneId, texte, lien, categorie, creeLe }) => {
+        if (!CLES_CATEGORIES.includes(categorie)) throw new Error(`Catégorie de notification inconnue : ${categorie}`)
+        return requete(`
+          INSERT INTO notifications (utilisateur_id, campagne_id, texte, lien, categorie, push_a_envoyer, cree_le) VALUES (?, ?, ?, ?, ?, 1, ?)`)
+          .run(utilisateurId, campagneId, texte, lien, categorie, creeLe)
+      },
       de: (utilisateurId, limite) => requete(`
         SELECT id, campagne_id AS campagneId, texte, lien, cree_le AS creeLe, lue_le AS lueLe
         FROM notifications WHERE utilisateur_id = ? ORDER BY cree_le DESC, id DESC LIMIT ?`).all(utilisateurId, limite),
       nonLues: (utilisateurId) => requete('SELECT COUNT(*) AS n FROM notifications WHERE utilisateur_id = ? AND lue_le IS NULL').get(utilisateurId).n,
       supprimerCellesDe: (utilisateurId, campagneId) => requete('DELETE FROM notifications WHERE utilisateur_id = ? AND campagne_id = ?').run(utilisateurId, campagneId),
       marquerLues: (utilisateurId, le) => requete('UPDATE notifications SET lue_le = ? WHERE utilisateur_id = ? AND lue_le IS NULL').run(le, utilisateurId),
+    },
+
+    /** Rappels de séance et relances de sondage déjà envoyés (« seance:4:veille », « sondage:2 »). */
+    rappels: {
+      envoyes: (prefixe) => requete("SELECT cle FROM rappels_envoyes WHERE cle LIKE ? || '%'").all(prefixe).map((l) => l.cle),
+      noter: (cle, le) => requete('INSERT INTO rappels_envoyes (cle, le) VALUES (?, ?) ON CONFLICT (cle) DO NOTHING').run(cle, le),
+      purger: (avant) => requete('DELETE FROM rappels_envoyes WHERE le < ?').run(avant),
     },
 
     /** Réponses aux sondages et notifications devenues inutiles (voir la politique de confidentialité). */

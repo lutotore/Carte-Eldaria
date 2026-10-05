@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { api } from '../api/client.js'
 import { NOMS_ROLES } from '../api/droits.js'
+import ReglagesNotifications from '../components/notifications/ReglagesNotifications.vue'
 import { utiliserEnvoi } from '../composables/envoi.js'
 import { moi } from '../session.js'
 
@@ -48,6 +49,8 @@ function supprimer() {
       <ul class="campagnes">
         <li v-for="c in moi.campagnes" :key="c.id">{{ c.nom }} — {{ NOMS_ROLES[c.role] }}</li>
       </ul>
+
+      <ReglagesNotifications />
 
       <h2>Changer de mot de passe</h2>
       <form @submit.prevent="changerMotDePasse">

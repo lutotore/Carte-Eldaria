@@ -78,7 +78,7 @@ export function creerCalendrier({ db, depots, maintenant }) {
     for (const joueur of joueursDe(campagneId)) {
       notifications.creer({
         utilisateurId: joueur.id, campagneId, texte: `Calendrier : ${apres.titre}, le ${formater(apres.jour)}.`,
-        lien: `/campagne/${campagneId}/calendrier`, creeLe: iso(),
+        lien: `/campagne/${campagneId}/calendrier`, categorie: 'revelations', creeLe: iso(),
       })
     }
   }
@@ -127,7 +127,7 @@ export function creerCalendrier({ db, depots, maintenant }) {
         if (!devientVisible) return
         for (const joueur of joueursDe(campagneId)) {
           notifications.creer({
-            utilisateurId: joueur.id, campagneId, texte: `${nom} : ${formater(jour)}.`, lien: `/campagne/${campagneId}/calendrier`, creeLe: iso(),
+            utilisateurId: joueur.id, campagneId, texte: `${nom} : ${formater(jour)}.`, lien: `/campagne/${campagneId}/calendrier`, categorie: 'revelations', creeLe: iso(),
           })
         }
       })

@@ -10,9 +10,17 @@ export function portailDeTest() {
   const horloge = { maintenant: new Date('2026-10-05T20:00:00Z') }
   const db = ouvrirBase(':memory:')
   const images = creerStockageMemoire()
-  const portail = creerPortail({ db, maintenant: () => horloge.maintenant, coutMotDePasse: { N: 1024 }, images })
+  // Les notifications push ne quittent jamais les tests : elles sont gardées ici, avec la réponse que l'on veut simuler.
+  const pushs = []
+  const reponsesPush = new Map()
+  const envoyeurPush = async ({ abonnement, charge }) => {
+    pushs.push({ adresse: abonnement.endpoint, charge: JSON.parse(charge) })
+    return { statut: reponsesPush.get(abonnement.endpoint) ?? 201 }
+  }
+  const portail = creerPortail({ db, maintenant: () => horloge.maintenant, coutMotDePasse: { N: 1024 }, images, envoyeurPush })
   const avancer = (jours) => { horloge.maintenant = new Date(horloge.maintenant.getTime() + jours * 86_400_000) }
-  return { db, portail, avancer, images }
+  const fixerHeure = (iso) => { horloge.maintenant = new Date(iso) }
+  return { db, portail, avancer, fixerHeure, images, pushs, reponsesPush }
 }
 
 /** Une campagne avec son propriétaire « tom » déjà inscrit. */

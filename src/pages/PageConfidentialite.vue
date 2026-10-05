@@ -28,6 +28,7 @@ import { moi } from '../session.js'
         <li><strong>Ta fiche de personnage</strong> (joueurs) : ce que tu y écris (caractéristiques, histoire, notes…), ta bourse, ton inventaire, et les Marques du Rêve qu'un MJ y inscrit.</li>
         <li><strong>Tes notes du calendrier</strong> : les rendez-vous ou échéances que tu y notes, privés ou partagés avec le groupe.</li>
         <li><strong>Tes prises dans les butins</strong> : ce que tu as pris (« lea prend 2 × Potion de soins ») et quand, visible de la table.</li>
+        <li><strong>Tes appareils abonnés aux notifications</strong>, si tu les actives : l'adresse et les clés de chiffrement que ton navigateur fournit pour te les envoyer, le nom de l'appareil (« Android · Chrome ») et la date du dernier envoi. Et les sortes de notifications que tu as choisi de ne pas recevoir.</li>
         <li><strong>Tes notifications</strong> : les messages du portail qui te sont adressés (sondage ouvert, séance fixée ou annulée) et s'ils ont été lus.</li>
         <li><strong>Ton adresse IP</strong>, uniquement en mémoire et pendant 15 minutes au plus, pour limiter les tentatives de connexion répétées. Elle n'est enregistrée ni dans la base ni dans les journaux du serveur.</li>
       </ul>
@@ -46,7 +47,8 @@ import { moi } from '../session.js'
         <li>Le journal d'un butin (qui a pris quoi) est visible des MJ et des joueurs tant que le butin est ouvert.</li>
         <li>Les réponses à un sondage de dates sont visibles des MJ et des autres joueurs réguliers de la campagne, comme sur un sondage de dates classique.</li>
         <li>L'hébergeur, {{ HEBERGEUR.nom }}, stocke les données sur ses serveurs situés en France, pour le compte de l'éditeur.</li>
-        <li>Les données ne quittent pas l'Union européenne et ne sont ni vendues, ni louées, ni utilisées à des fins publicitaires.</li>
+        <li>Si tu actives les notifications sur un appareil, chacune passe par le service de notifications de ton navigateur ou de ton téléphone (Google pour Chrome et Android, Apple pour Safari et l'iPhone, Mozilla pour Firefox, Microsoft pour Edge), qui peut se trouver hors de l'Union européenne. Le message est chiffré de bout en bout : ce service ne peut pas le lire, il voit seulement qu'une notification t'est envoyée. C'est pour cela que l'activation est un choix, appareil par appareil, que tu peux retirer à tout moment dans « Mon compte » ou dans les réglages de ton navigateur.</li>
+        <li>En dehors de ces notifications, les données ne quittent pas l'Union européenne. Elles ne sont ni vendues, ni louées, ni utilisées à des fins publicitaires.</li>
       </ul>
 
       <h2>Combien de temps sont-elles gardées ?</h2>
@@ -60,6 +62,7 @@ import { moi } from '../session.js'
         <li>Tes notes du calendrier : jusqu'à ce que tu les supprimes, que tu quittes la campagne, ou avec ton compte.</li>
         <li>Tes prises dans les butins : jusqu'à ce que le MJ supprime le butin, ou avec ton compte.</li>
         <li>Tes disponibilités : {{ DUREES.disponibilitesJours }} jours après la dernière date proposée par le sondage.</li>
+        <li>Tes appareils abonnés : jusqu'à ce que tu les retires, que tu te déconnectes de cet appareil, que ton navigateur annule l'abonnement, ou avec ton compte.</li>
         <li>Les notifications : {{ DUREES.notificationsLuesJours }} jours après leur lecture, et {{ DUREES.notificationsJours }} jours au plus.</li>
         <li>Les copies de sauvegarde, qui protègent la campagne contre une panne : {{ DUREES.sauvegardesMois }} mois au plus. Une donnée supprimée disparaît donc des sauvegardes au bout de ce délai.</li>
       </ul>

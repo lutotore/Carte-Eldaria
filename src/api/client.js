@@ -116,6 +116,14 @@ export const api = {
   modifierEvenement: (campagneId, evenementId, entree) => appeler('PUT', `/api/campagnes/${campagneId}/calendrier/evenements/${evenementId}`, entree),
   supprimerEvenement: (campagneId, evenementId) => appeler('DELETE', `/api/campagnes/${campagneId}/calendrier/evenements/${evenementId}`),
 
+  reglagesPush: () => appeler('GET', '/api/moi/push'),
+  abonnerPush: (abonnement, appareil) => appeler('POST', '/api/moi/push', { abonnement, appareil }),
+  verifierPush: (adresse) => appeler('POST', '/api/moi/push/verification', { adresse }),
+  desabonnerPush: (adresse) => appeler('POST', '/api/moi/push/desabonnement', { adresse }),
+  retirerAppareilPush: (appareilId) => appeler('DELETE', `/api/moi/push/appareils/${appareilId}`),
+  changerPreferencesPush: (actives) => appeler('PUT', '/api/moi/push/preferences', { actives }),
+  envoyerAnnonce: (campagneId, texte, destinataires) => appeler('POST', `/api/campagnes/${campagneId}/annonces`, { texte, destinataires }),
+
   changerMotDePasse: (actuel, nouveau) => appeler('PUT', '/api/moi/mot-de-passe', { actuel, nouveau }),
   supprimerCompte: (motDePasse) => appeler('POST', '/api/moi/suppression', { motDePasse }),
 }

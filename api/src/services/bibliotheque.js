@@ -179,7 +179,7 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       const chemin = CHEMINS[apres.type]
       notifications.creer({
         utilisateurId: joueur.id, campagneId, texte: `Nouvelle information : ${nomApres ?? INCONNUS[apres.type]}.`,
-        lien: `/campagne/${campagneId}/${chemin}/${apres.id}`, creeLe: iso(),
+        lien: `/campagne/${campagneId}/${chemin}/${apres.id}`, categorie: 'revelations', creeLe: iso(),
       })
     }
   }
@@ -351,7 +351,7 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
           if (!aDecouvert(vueAvant, vueApres)) continue
           notifications.creer({
             utilisateurId: joueur.id, campagneId, texte: `${auteur} partage un document : ${vueApres.nom ?? 'un document'}.`,
-            lien: `/campagne/${campagneId}/documents/${ficheId}`, creeLe: iso(),
+            lien: `/campagne/${campagneId}/documents/${ficheId}`, categorie: 'revelations', creeLe: iso(),
           })
         }
       })

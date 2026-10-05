@@ -2,7 +2,9 @@
 import { onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { api } from '../api/client.js'
+import FormulaireAnnonce from '../components/notifications/FormulaireAnnonce.vue'
 import { utiliserEnvoi } from '../composables/envoi.js'
+import { moi } from '../session.js'
 
 /** Pour les MJ : les fiches de personnage des joueurs de la campagne. */
 const props = defineProps({ id: { type: String, required: true } })
@@ -20,8 +22,9 @@ const date = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric'
   <main class="page-personnages">
     <header>
       <h1>Personnages</h1>
-      <p class="sous-titre">Les fiches des joueurs. Chacun crée et tient la sienne ; tu peux tout y modifier et y inscrire les Marques du Rêve.</p>
+      <p class="sous-titre">Tes joueurs : leur envoyer un message, et leurs fiches. Chacun crée et tient la sienne ; tu peux tout y modifier et y inscrire les Marques du Rêve.</p>
     </header>
+    <FormulaireAnnonce :campagne-id="id" :moi-id="moi.id" />
     <p v-if="erreur" class="message message--erreur" role="alert">{{ erreur }}</p>
     <p v-if="liste && !liste.length" class="vide">Aucun joueur n’a encore créé sa fiche.</p>
     <ul class="grille">

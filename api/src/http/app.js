@@ -10,6 +10,7 @@ import { routesLiens } from './routes/liens.js'
 import { routesMoi } from './routes/moi.js'
 import { routesPersonnages } from './routes/personnages.js'
 import { routesPlanning } from './routes/planning.js'
+import { routesPush } from './routes/push.js'
 import { routesSession } from './routes/session.js'
 
 const STATUT_PAR_CODE = {
@@ -118,6 +119,7 @@ export function construireApp({ portail, config }) {
     routesBibliotheque(api, portail)
     routesPersonnages(api, portail)
     routesCalendrier(api, portail)
+    routesPush(api, portail)
   })
 
   return app
