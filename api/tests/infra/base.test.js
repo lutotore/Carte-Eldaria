@@ -104,6 +104,20 @@ describe('base de données', () => {
     expect(db.prepare('SELECT libelle, fiche_id AS ficheId FROM inventaire').get()).toEqual({ libelle: 'Altimètre', ficheId: null })
   })
 
+  it("exige un auteur pour une note du calendrier, et seulement pour elle (migration 8)", () => {
+    const db = ouvrirBase(':memory:')
+    db.exec(`
+      INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('lea', 'x', 'd');
+      INSERT INTO campagnes (nom, cree_le) VALUES ('Eldaria', 'd');
+    `)
+    const inserer = (type, auteur) => db.prepare(`INSERT INTO evenements (campagne_id, type, jour, titre, visibilite, auteur_id, cree_le, maj_le)
+      VALUES (1, ?, 10, 't', 'groupe', ?, 'd', 'd')`).run(type, auteur)
+    expect(() => inserer('note', null)).toThrow()
+    expect(() => inserer('fete', 1)).toThrow()
+    expect(inserer('note', 1).changes).toBe(1)
+    expect(inserer('fete', null).changes).toBe(1)
+  })
+
   it('refuse un rôle inconnu', () => {
     const db = ouvrirBase(':memory:')
     db.prepare("INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('tom', 'x', 'd')").run()

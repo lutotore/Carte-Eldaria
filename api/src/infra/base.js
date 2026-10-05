@@ -285,6 +285,36 @@ export const MIGRATIONS = [
     le             TEXT NOT NULL
   );
   `,
+  // 8 — calendrier du monde : date du jour en jeu, date butoir secrète, fêtes, événements, chronique, notes des joueurs.
+  `
+  CREATE TABLE calendriers (
+    campagne_id    INTEGER PRIMARY KEY REFERENCES campagnes(id) ON DELETE CASCADE,
+    -- Bornes : voir JOUR_MAX dans src/domain/calendrier.js (an 99 999).
+    aujourdhui     INTEGER NOT NULL CHECK (aujourdhui BETWEEN 0 AND 36499999),
+    butoir         INTEGER CHECK (butoir BETWEEN 0 AND 36499999),
+    butoir_libelle TEXT NOT NULL DEFAULT 'La catastrophe',
+    butoir_revele  INTEGER NOT NULL DEFAULT 0 CHECK (butoir_revele IN (0, 1)),
+    maj_le         TEXT NOT NULL
+  );
+
+  CREATE TABLE evenements (
+    id          INTEGER PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    type        TEXT NOT NULL CHECK (type IN ('fete', 'evenement', 'chronique', 'note')),
+    jour        INTEGER NOT NULL CHECK (jour BETWEEN 0 AND 36499999),
+    duree       INTEGER NOT NULL DEFAULT 1 CHECK (duree BETWEEN 1 AND 365),
+    annuel      INTEGER NOT NULL DEFAULT 0 CHECK (annuel IN (0, 1)),
+    titre       TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    visibilite  TEXT NOT NULL CHECK (visibilite IN ('cache', 'groupe', 'privee')),
+    -- L'auteur d'une note de joueur ; les fêtes, événements et chroniques du MJ n'en ont pas.
+    auteur_id   INTEGER REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    cree_le     TEXT NOT NULL,
+    maj_le      TEXT NOT NULL,
+    CHECK ((type = 'note') = (auteur_id IS NOT NULL))
+  );
+  CREATE INDEX evenements_campagne ON evenements (campagne_id, jour);
+  `,
 ]
 
 export function ouvrirBase(chemin) {

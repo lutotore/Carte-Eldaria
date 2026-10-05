@@ -26,6 +26,7 @@ async function deconnexion() {
       <template v-if="campagne">
         <RouterLink :to="{ name: 'carte', params: { id: campagne.id } }" :class="{ actif: route.name === 'carte' }">Carte</RouterLink>
         <RouterLink :to="{ name: 'seances', params: { id: campagne.id } }" active-class="actif">Séances</RouterLink>
+        <RouterLink :to="{ name: 'calendrier', params: { id: campagne.id } }" active-class="actif">Calendrier</RouterLink>
         <RouterLink :to="{ name: 'bibliotheque', params: { id: campagne.id } }" :class="{ actif: route.meta.bibliotheque }">Bibliothèque</RouterLink>
         <RouterLink v-if="estMj(campagne)" :to="{ name: 'personnages', params: { id: campagne.id } }" active-class="actif">Personnages</RouterLink>
         <RouterLink v-else :to="{ name: 'personnage', params: { id: campagne.id } }" active-class="actif">Ma fiche</RouterLink>

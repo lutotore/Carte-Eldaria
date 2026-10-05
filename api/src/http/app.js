@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 import { ErreurMetier } from '../domaine/erreurs.js'
 import { DUREES_JOURS } from '../services/portail.js'
 import { routesBibliotheque } from './routes/bibliotheque.js'
+import { routesCalendrier } from './routes/calendrier.js'
 import { routesCampagnes } from './routes/campagnes.js'
 import { routesLiens } from './routes/liens.js'
 import { routesMoi } from './routes/moi.js'
@@ -116,6 +117,7 @@ export function construireApp({ portail, config }) {
     routesPlanning(api, portail)
     routesBibliotheque(api, portail)
     routesPersonnages(api, portail)
+    routesCalendrier(api, portail)
   })
 
   return app

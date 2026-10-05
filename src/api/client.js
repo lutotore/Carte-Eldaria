@@ -109,6 +109,13 @@ export const api = {
   prendreObjet: (campagneId, butinId, objetId, quantite) => appeler('POST', `/api/campagnes/${campagneId}/butins/${butinId}/objets/${objetId}/prise`, { quantite }),
   prendrePieces: (campagneId, butinId, pieces) => appeler('POST', `/api/campagnes/${campagneId}/butins/${butinId}/pieces/prise`, { pieces }),
 
+  calendrier: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/calendrier`),
+  changerDate: (campagneId, jour) => appeler('PUT', `/api/campagnes/${campagneId}/calendrier/date`, { jour }),
+  changerButoir: (campagneId, butoir) => appeler('PUT', `/api/campagnes/${campagneId}/calendrier/butoir`, butoir),
+  creerEvenement: (campagneId, entree) => appeler('POST', `/api/campagnes/${campagneId}/calendrier/evenements`, entree),
+  modifierEvenement: (campagneId, evenementId, entree) => appeler('PUT', `/api/campagnes/${campagneId}/calendrier/evenements/${evenementId}`, entree),
+  supprimerEvenement: (campagneId, evenementId) => appeler('DELETE', `/api/campagnes/${campagneId}/calendrier/evenements/${evenementId}`),
+
   changerMotDePasse: (actuel, nouveau) => appeler('PUT', '/api/moi/mot-de-passe', { actuel, nouveau }),
   supprimerCompte: (motDePasse) => appeler('POST', '/api/moi/suppression', { motDePasse }),
 }

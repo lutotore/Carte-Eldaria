@@ -115,6 +115,13 @@ La bourse se modifie en rappelant son contenu précédent : une prise faite entr
 Les Marques du Rêve sont inscrites par un MJ. Les butins se préparent en secret, s'ouvrent aux joueurs qui s'y servent
 (objets et pièces, dans une même transaction), puis se ferment.
 
+## Calendrier du monde
+
+Le calendrier d'Eldaria (12 mois de 30 jours en trois décades, puis 5 Jours Blancs) est décrit par des données dans
+`src/domain/calendrier.js` (`CALENDRIER`) : changer un nom de mois ne touche à rien d'autre. Les dates sont enregistrées
+comme un nombre de jours depuis le 1er Primevent de l'an 0. La date butoir de la catastrophe reste visible des seuls MJ
+tant qu'elle n'est pas révélée.
+
 ## Plusieurs MJ en même temps
 
 Chaque enregistrement de la table du MJ rappelle la **version** du monde sur laquelle il a été fait.

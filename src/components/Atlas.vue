@@ -35,6 +35,7 @@ const lieuxIle = computed(() => props.lieux.get(selection.value) ?? [])
 const missionsIle = computed(() => props.monde.missions.filter((m) => m.ile === selection.value))
 
 const etiquettes = computed(() => [
+  ...(props.monde.date ? [{ nom: props.monde.date.souffle, valeur: props.monde.date.texte }] : []),
   { nom: 'Acte', valeur: NOMS_ACTE[props.monde.acte - 1] },
   { nom: 'Relevé', valeur: props.monde.session },
   { nom: 'Mer de brume', valeur: formaterAltitude(props.monde.brume), cote: true },

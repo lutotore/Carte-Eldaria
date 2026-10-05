@@ -81,4 +81,15 @@ describe("client de l'API", () => {
       ['POST', '/api/campagnes/1/butins/7/objets/9/prise', { quantite: 2 }],
     ])
   })
+
+  it('avance la date du monde et règle la date butoir', async () => {
+    const fetch = repondre(204)
+    vi.stubGlobal('fetch', fetch)
+    await api.changerDate(1, 1170000)
+    await api.changerButoir(1, { jour: 1170400, libelle: 'Le Grand Éveil', revele: false })
+    expect(fetch.mock.calls.map(([url, o]) => [o.method, url, JSON.parse(o.body)])).toEqual([
+      ['PUT', '/api/campagnes/1/calendrier/date', { jour: 1170000 }],
+      ['PUT', '/api/campagnes/1/calendrier/butoir', { jour: 1170400, libelle: 'Le Grand Éveil', revele: false }],
+    ])
+  })
 })

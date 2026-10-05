@@ -9,6 +9,7 @@ import { transaction } from '../infra/base.js'
 import { empreinteJeton, genererJeton } from '../securite/jetons.js'
 import { hacherMotDePasse, verifierMotDePasse } from '../securite/motsDePasse.js'
 import { creerBibliotheque } from './bibliotheque.js'
+import { creerCalendrier } from './calendrier.js'
 import { creerPersonnages } from './personnages.js'
 import { creerPlanning } from './planning.js'
 
@@ -23,6 +24,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
   const planningDeLaCampagne = creerPlanning({ db, depots, maintenant })
   const bibliothequeDeLaCampagne = creerBibliotheque({ db, depots, maintenant, images })
   const personnagesDeLaCampagne = creerPersonnages({ db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne })
+  const calendrierDeLaCampagne = creerCalendrier({ db, depots, maintenant })
   const iso = () => maintenant().toISOString()
   const hacher = (motDePasse) => hacherMotDePasse(motDePasse, coutMotDePasse)
 
@@ -214,13 +216,14 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         planningDeLaCampagne.oublierNotificationsDe(cibleId, campagneId)
         bibliothequeDeLaCampagne.oublierRevelationsDe(cibleId, campagneId)
         personnagesDeLaCampagne.oublierPersonnageDe(cibleId, campagneId)
+        calendrierDeLaCampagne.oublierNotesCalendrierDe(cibleId, campagneId)
       })
     },
 
     // --- Stories 7 et 8 : le monde de la campagne ---
     lireMonde({ demandeurId, campagneId }) {
       exiger(roleDans(demandeurId, campagneId), erreurs.interdit())
-      return versPublic(lireEtatBrut(campagneId))
+      return { ...versPublic(lireEtatBrut(campagneId)), date: calendrierDeLaCampagne.dateDuJour(campagneId) }
     },
 
     /** Renvoie le monde et son numéro de version, à rappeler lors de l'écriture. */
@@ -282,6 +285,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         ...planningDeLaCampagne.donneesPlanningDe(utilisateurId),
         ...bibliothequeDeLaCampagne.donneesBibliothequeDe(utilisateurId),
         ...personnagesDeLaCampagne.donneesPersonnagesDe(utilisateurId),
+        ...calendrierDeLaCampagne.donneesCalendrierDe(utilisateurId),
       }
     },
 
@@ -304,6 +308,9 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
 
     // --- Lot 3 : bibliothèque de PNJ (voir services/bibliotheque.js) ---
     ...bibliothequeDeLaCampagne,
+
+    // --- Calendrier du monde (voir services/calendrier.js) ---
+    ...calendrierDeLaCampagne,
 
     // --- Fiches de personnage, inventaire, Marques du Rêve, butins (voir services/personnages.js) ---
     ...personnagesDeLaCampagne,
