@@ -3,13 +3,14 @@ import { RUBRIQUES, lieuxParIle, rubriqueDe } from '../../src/components/bibliot
 
 describe('rubriques de la bibliothèque', () => {
   it('chaque type de fiche a sa liste et sa page de fiche, dans l’ordre des onglets', () => {
-    expect(RUBRIQUES.map((r) => r.type)).toEqual(['pnj', 'creature', 'lieu', 'document'])
+    expect(RUBRIQUES.map((r) => r.type)).toEqual(['pnj', 'creature', 'lieu', 'document', 'objet'])
+    expect(rubriqueDe('objet')).toMatchObject({ liste: 'objets', fiche: 'objet', onglet: 'Objets' })
     expect(rubriqueDe('lieu')).toMatchObject({ liste: 'lieux', fiche: 'lieu', onglet: 'Lieux' })
     expect(rubriqueDe('document')).toMatchObject({ liste: 'documents', fiche: 'document', onglet: 'Documents' })
   })
 
   it('un type inconnu retombe sur les PNJ plutôt que sur une page vide', () => {
-    expect(rubriqueDe('objet').type).toBe('pnj')
+    expect(rubriqueDe('dragon').type).toBe('pnj')
     expect(rubriqueDe(undefined).type).toBe('pnj')
   })
 })

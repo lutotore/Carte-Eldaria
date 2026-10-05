@@ -216,6 +216,9 @@ rm /tmp/pnj.json
 
 Même chose pour les autres fichiers préparés (`creatures-acte-1.json`, `lieux-acte-1.json`, `documents-acte-1.json`) :
 seul le nom du fichier change. Les lieux arrivent déjà rattachés à leur île.
+`objets-acte-1.json` contient aussi les **butins** de chaque rencontre : ils arrivent en préparation, invisibles des joueurs,
+et leurs objets sont reliés aux fiches d'objets du même nom. Relis le libellé de chaque objet avant d'ouvrir un butin :
+c'est ce que les joueurs verront avant toute identification.
 
 Toutes les fiches arrivent **cachées** : les joueurs ne voient rien tant que tu ne révèles pas, facette par facette.
 Les portraits se téléversent ensuite depuis chaque fiche ; ils sont stockés dans `donnees/images/`, à côté de la base.

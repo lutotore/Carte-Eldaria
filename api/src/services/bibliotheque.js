@@ -479,6 +479,32 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       })
     },
 
+    /**
+     * Pour l'inventaire et les butins : ce qu'un lecteur sait des objets de la bibliothèque.
+     * Renvoie une fonction ficheId → { id, nom } (le nom pouvant rester inconnu), ou null si le lecteur n'en sait rien.
+     */
+    lecteurDObjets(campagneId, utilisateurId, pourMj) {
+      const objets = new Map(fichesCompletes(campagneId).filter((f) => f.type === 'objet').map((f) => [f.id, f]))
+      return (ficheId) => {
+        const fiche = objets.get(ficheId)
+        if (!fiche) return null
+        if (pourMj) return { id: fiche.id, nom: valeurDe(fiche, 'nom') }
+        const vue = vueJoueur(fiche, fiche.facettes, utilisateurId)
+        return vue ? { id: fiche.id, nom: vue.nom } : null
+      }
+    },
+
+    /** Une fiche d'objet de la campagne, pour y relier un objet de butin. */
+    exigerFicheObjet(ficheId, campagneId) {
+      const fiche = biblio.fiches.parId(ficheId, campagneId)
+      exiger(fiche?.type === 'objet', erreurs.requeteInvalide("Ce n'est pas un objet de la bibliothèque."))
+    },
+
+    /** Les fiches d'objets par nom, pour relier les butins importés. */
+    objetsParNom(campagneId) {
+      return new Map(fichesCompletes(campagneId).filter((f) => f.type === 'objet').map((f) => [valeurDe(f, 'nom'), f.id]))
+    },
+
     /** Un membre retiré ne garde pas les révélations qui lui étaient destinées. */
     oublierRevelationsDe(utilisateurId, campagneId) {
       biblio.facettes.retirerRevelationsDe(utilisateurId, campagneId)

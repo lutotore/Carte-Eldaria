@@ -20,6 +20,10 @@ const routes = [
     { path: `/campagne/:id/${r.liste}`, name: r.liste, component: page('PageBibliotheque'), props: (route) => ({ id: route.params.id, type: r.type }), meta: { connecte: true, membre: true, bibliotheque: true, titre: r.titre } },
     { path: `/campagne/:id/${r.liste}/:ficheId`, name: r.fiche, component: page('PageFiche'), props: true, meta: { connecte: true, membre: true, bibliotheque: true, titre: r.nature } },
   ]),
+  { path: '/campagne/:id/personnage', name: 'personnage', component: page('PagePersonnage'), props: true, meta: { connecte: true, membre: true, titre: 'Ma fiche' } },
+  { path: '/campagne/:id/personnages', name: 'personnages', component: page('PagePersonnages'), props: true, meta: { connecte: true, mj: true, titre: 'Personnages' } },
+  { path: '/campagne/:id/personnages/:personnageId', name: 'fiche-personnage', component: page('PagePersonnage'), props: true, meta: { connecte: true, mj: true, titre: 'Personnage' } },
+  { path: '/campagne/:id/butins', name: 'butins', component: page('PageButins'), props: true, meta: { connecte: true, membre: true, titre: 'Butins' } },
   { path: '/campagne/:id/mj', name: 'mj', component: () => import('./mj/TableDuMj.vue'), props: true, meta: { connecte: true, mj: true, titre: 'Table du MJ' } },
   { path: '/campagne/:id/membres', name: 'membres', component: page('PageMembres'), props: true, meta: { connecte: true, proprietaire: true, titre: 'Membres' } },
 

@@ -24,6 +24,10 @@ defineProps({
         <path d="M14 10h26l8 8v52H14z" />
         <path d="M20 28h20M20 36h22M20 44h18M20 52h20" />
       </g>
+      <g v-else-if="genre === 'objet'" fill="currentColor" opacity=".35">
+        <path d="M30 12l14 16-14 34-14-34z" />
+        <path d="M16 28h28" stroke="currentColor" stroke-width="1.5" opacity=".6" />
+      </g>
       <g v-else fill="currentColor" opacity=".35">
         <circle cx="30" cy="30" r="12" />
         <path d="M10 76c2-16 10-24 20-24s18 8 20 24" />

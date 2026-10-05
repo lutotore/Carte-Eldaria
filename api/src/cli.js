@@ -35,8 +35,9 @@ export async function executerCommande([commande, argument, fichier], { portail,
     }
     case 'importer-fiches': {
       const texte = fichier ? await lireFichier(fichier) : await lireEntree()
-      const { nombre } = portail.importerFiches(Number(argument), JSON.parse(texte))
+      const { nombre, butins } = portail.importerFiches(Number(argument), JSON.parse(texte))
       ecrire(`${nombre} fiche(s) importée(s), toutes cachées, dans la campagne n° ${argument}.`)
+      if (butins) ecrire(`${butins} butin(s) importé(s), en préparation : les joueurs ne les voient pas avant que tu les ouvres.`)
       return
     }
     case 'exporter-etat': {

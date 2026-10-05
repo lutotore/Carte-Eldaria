@@ -37,7 +37,7 @@ watch(() => props.type, () => { donnees.value = null; recherche.value = ''; atti
 
 const LIBELLES_REVELATION = { cache: 'Caché', partiel: 'En partie révélé', revele: 'Révélé' }
 
-const ROLE_PAR_TYPE = { pnj: 'role', creature: 'nature' }
+const ROLE_PAR_TYPE = { pnj: 'role', creature: 'nature', objet: 'nature' }
 
 /** Pour un joueur, attitude et rôle ne sont connus que s'ils ont été révélés. Un lieu se résume à son île. */
 function resume(fiche) {

@@ -89,6 +89,21 @@ describe('base de données', () => {
     expect(db.prepare("SELECT ile FROM fiches WHERE type = 'lieu'").get().ile).toBe('cendrebas')
   })
 
+  it("garde les lignes d'inventaire quand l'objet de la bibliothèque disparaît (migration 7)", () => {
+    const db = ouvrirBase(':memory:')
+    db.exec(`
+      INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('lea', 'x', 'd');
+      INSERT INTO campagnes (nom, cree_le) VALUES ('Eldaria', 'd');
+      INSERT INTO fiches (campagne_id, type, cree_le) VALUES (1, 'objet', 'd');
+      INSERT INTO personnages (campagne_id, utilisateur_id, contenu, cree_le, maj_le) VALUES (1, 1, '{}', 'd', 'd');
+      INSERT INTO inventaire (personnage_id, libelle, quantite, fiche_id, cree_le) VALUES (1, 'Altimètre', 1, 1, 'd');
+    `)
+    expect(() => db.exec("INSERT INTO personnages (campagne_id, utilisateur_id, contenu, cree_le, maj_le) VALUES (1, 1, '{}', 'd', 'd')")).toThrow()
+    expect(() => db.exec('UPDATE personnages SET po = -1')).toThrow()
+    db.exec('DELETE FROM fiches')
+    expect(db.prepare('SELECT libelle, fiche_id AS ficheId FROM inventaire').get()).toEqual({ libelle: 'Altimètre', ficheId: null })
+  })
+
   it('refuse un rôle inconnu', () => {
     const db = ouvrirBase(':memory:')
     db.prepare("INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('tom', 'x', 'd')").run()

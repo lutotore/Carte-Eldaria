@@ -215,6 +215,76 @@ export const MIGRATIONS = [
     ALTER TABLE fiches_v6 RENAME TO fiches;
     `,
   },
+  // 7 — fiches de personnage (une par joueur et par campagne), inventaire, Marques du Rêve, butins de rencontre.
+  `
+  CREATE TABLE personnages (
+    id             INTEGER PRIMARY KEY,
+    campagne_id    INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    contenu        TEXT NOT NULL,
+    pp INTEGER NOT NULL DEFAULT 0 CHECK (pp >= 0),
+    po INTEGER NOT NULL DEFAULT 0 CHECK (po >= 0),
+    pe INTEGER NOT NULL DEFAULT 0 CHECK (pe >= 0),
+    pa INTEGER NOT NULL DEFAULT 0 CHECK (pa >= 0),
+    pc INTEGER NOT NULL DEFAULT 0 CHECK (pc >= 0),
+    cree_le        TEXT NOT NULL,
+    maj_le         TEXT NOT NULL,
+    UNIQUE (campagne_id, utilisateur_id)
+  );
+
+  CREATE TABLE inventaire (
+    id             INTEGER PRIMARY KEY,
+    personnage_id  INTEGER NOT NULL REFERENCES personnages(id) ON DELETE CASCADE,
+    libelle        TEXT NOT NULL,
+    quantite       INTEGER NOT NULL CHECK (quantite BETWEEN 1 AND 9999),
+    notes          TEXT NOT NULL DEFAULT '',
+    -- L'objet de la bibliothèque, quand la ligne en vient : son identification se révèle peu à peu.
+    fiche_id       INTEGER REFERENCES fiches(id) ON DELETE SET NULL,
+    cree_le        TEXT NOT NULL
+  );
+  CREATE INDEX inventaire_personnage ON inventaire (personnage_id);
+
+  CREATE TABLE marques (
+    id            INTEGER PRIMARY KEY,
+    personnage_id INTEGER NOT NULL REFERENCES personnages(id) ON DELETE CASCADE,
+    titre         TEXT NOT NULL,
+    don           TEXT NOT NULL DEFAULT '',
+    prix          TEXT NOT NULL DEFAULT '',
+    cree_le       TEXT NOT NULL
+  );
+
+  CREATE TABLE butins (
+    id          INTEGER PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    titre       TEXT NOT NULL,
+    notes_mj    TEXT NOT NULL DEFAULT '',
+    statut      TEXT NOT NULL DEFAULT 'prepare' CHECK (statut IN ('prepare', 'ouvert', 'clos')),
+    pp INTEGER NOT NULL DEFAULT 0 CHECK (pp >= 0),
+    po INTEGER NOT NULL DEFAULT 0 CHECK (po >= 0),
+    pe INTEGER NOT NULL DEFAULT 0 CHECK (pe >= 0),
+    pa INTEGER NOT NULL DEFAULT 0 CHECK (pa >= 0),
+    pc INTEGER NOT NULL DEFAULT 0 CHECK (pc >= 0),
+    cree_le     TEXT NOT NULL
+  );
+
+  CREATE TABLE butin_objets (
+    id          INTEGER PRIMARY KEY,
+    butin_id    INTEGER NOT NULL REFERENCES butins(id) ON DELETE CASCADE,
+    libelle     TEXT NOT NULL,
+    quantite    INTEGER NOT NULL CHECK (quantite >= 0),
+    description TEXT NOT NULL DEFAULT '',
+    fiche_id    INTEGER REFERENCES fiches(id) ON DELETE SET NULL
+  );
+
+  -- Qui a pris quoi : visible de la table, et dans l'export des données du joueur.
+  CREATE TABLE butin_prises (
+    id             INTEGER PRIMARY KEY,
+    butin_id       INTEGER NOT NULL REFERENCES butins(id) ON DELETE CASCADE,
+    utilisateur_id INTEGER NOT NULL REFERENCES utilisateurs(id) ON DELETE CASCADE,
+    texte          TEXT NOT NULL,
+    le             TEXT NOT NULL
+  );
+  `,
 ]
 
 export function ouvrirBase(chemin) {

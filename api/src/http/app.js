@@ -7,6 +7,7 @@ import { routesBibliotheque } from './routes/bibliotheque.js'
 import { routesCampagnes } from './routes/campagnes.js'
 import { routesLiens } from './routes/liens.js'
 import { routesMoi } from './routes/moi.js'
+import { routesPersonnages } from './routes/personnages.js'
 import { routesPlanning } from './routes/planning.js'
 import { routesSession } from './routes/session.js'
 
@@ -114,6 +115,7 @@ export function construireApp({ portail, config }) {
     routesCampagnes(api, portail, config)
     routesPlanning(api, portail)
     routesBibliotheque(api, portail)
+    routesPersonnages(api, portail)
   })
 
   return app

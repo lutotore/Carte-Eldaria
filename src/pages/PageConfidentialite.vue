@@ -25,6 +25,8 @@ import { moi } from '../session.js'
         <li><strong>Tes disponibilités</strong> (joueurs uniquement) : pour chaque date proposée, oui ou non et ta plage horaire, pour trouver une date qui convient à la table.</li>
         <li><strong>Tes notes et croyances</strong> sur les fiches de la bibliothèque (personnages, créatures, lieux, documents), que tu écris et choisis de garder privées ou de partager avec le groupe.</li>
         <li><strong>Tes estimations</strong> des statistiques d'une créature (« CA autour de 14 »), partagées avec le groupe et signées de ton identifiant.</li>
+        <li><strong>Ta fiche de personnage</strong> (joueurs) : ce que tu y écris (caractéristiques, histoire, notes…), ta bourse, ton inventaire, et les Marques du Rêve qu'un MJ y inscrit.</li>
+        <li><strong>Tes prises dans les butins</strong> : ce que tu as pris (« lea prend 2 × Potion de soins ») et quand, visible de la table.</li>
         <li><strong>Tes notifications</strong> : les messages du portail qui te sont adressés (sondage ouvert, séance fixée ou annulée) et s'ils ont été lus.</li>
         <li><strong>Ton adresse IP</strong>, uniquement en mémoire et pendant 15 minutes au plus, pour limiter les tentatives de connexion répétées. Elle n'est enregistrée ni dans la base ni dans les journaux du serveur.</li>
       </ul>
@@ -38,6 +40,8 @@ import { moi } from '../session.js'
       <ul>
         <li>Les MJ de ta campagne voient ton identifiant, ton rôle et ta date d'arrivée.</li>
         <li>Une note privée n'est lue que par toi et par les MJ ; une note partagée, par tous les membres qui connaissent le personnage concerné. Un MJ peut reporter une croyance dans le registre de la campagne, avec son texte.</li>
+        <li>Ta fiche de personnage n'est lue et modifiée que par toi et par les MJ de la campagne.</li>
+        <li>Le journal d'un butin (qui a pris quoi) est visible des MJ et des joueurs tant que le butin est ouvert.</li>
         <li>Les réponses à un sondage de dates sont visibles des MJ et des autres joueurs réguliers de la campagne, comme sur un sondage de dates classique.</li>
         <li>L'hébergeur, {{ HEBERGEUR.nom }}, stocke les données sur ses serveurs situés en France, pour le compte de l'éditeur.</li>
         <li>Les données ne quittent pas l'Union européenne et ne sont ni vendues, ni louées, ni utilisées à des fins publicitaires.</li>
@@ -50,6 +54,8 @@ import { moi } from '../session.js'
         <li>Les liens d'invitation et de réinitialisation : valables {{ DUREES.invitationJours }} et {{ DUREES.reinitialisationJours }} jours ; ils sont effacés au plus tard 24 heures après avoir servi ou expiré.</li>
         <li>Tes estimations : jusqu'à ce qu'un joueur les remplace ou les efface, ou avec ton compte.</li>
         <li>Tes notes et croyances : jusqu'à ce que tu les supprimes, ou avec ton compte. Une croyance reportée dans le registre de la campagne y reste, sans ton identifiant.</li>
+        <li>Ta fiche de personnage : jusqu'à ce que tu la supprimes, que tu quittes la campagne, ou avec ton compte.</li>
+        <li>Tes prises dans les butins : jusqu'à ce que le MJ supprime le butin, ou avec ton compte.</li>
         <li>Tes disponibilités : {{ DUREES.disponibilitesJours }} jours après la dernière date proposée par le sondage.</li>
         <li>Les notifications : {{ DUREES.notificationsLuesJours }} jours après leur lecture, et {{ DUREES.notificationsJours }} jours au plus.</li>
         <li>Les copies de sauvegarde, qui protègent la campagne contre une panne : {{ DUREES.sauvegardesMois }} mois au plus. Une donnée supprimée disparaît donc des sauvegardes au bout de ce délai.</li>

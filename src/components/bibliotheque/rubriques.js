@@ -31,6 +31,13 @@ export const RUBRIQUES = [
     joueur: 'Les documents trouvés ou reçus. Si on t’en confie un, à toi de décider de le montrer aux autres.',
     videMj: 'Aucun document pour l’instant.', videJoueur: 'Aucun document pour l’instant.',
   },
+  {
+    type: 'objet', onglet: 'Objets', titre: 'Objets', liste: 'objets', fiche: 'objet',
+    nature: 'Objet', inconnu: 'Objet non identifié', nouveau: 'Nouvel objet',
+    mj: 'Les objets remarquables. Révèle leurs propriétés au fil de l’identification ; une malédiction reste un secret tant que tu veux.',
+    joueur: 'Les objets remarquables que vous avez examinés, et ce que vous en avez compris.',
+    videMj: 'Aucun objet pour l’instant.', videJoueur: 'Aucun objet identifié pour l’instant.',
+  },
 ]
 
 export function rubriqueDe(type) {

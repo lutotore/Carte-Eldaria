@@ -107,6 +107,14 @@ Les notes du MJ ne sortent jamais de l'API ; les portraits ne sont servis qu'à 
 Les joueurs écrivent des **notes** et des **croyances** (privées ou partagées). Un MJ peut compter une croyance
 dans le Registre des Croyances de la campagne en un clic.
 
+## Fiches de personnage et butins
+
+Chaque joueur tient sa fiche (règles de D&D 5e de 2014) : elle n'est visible que de lui et des MJ. Les valeurs
+déduites (modificateurs, bonus, Perception passive) sont calculées par `src/domain/personnage.js`, jamais stockées.
+La bourse se modifie en rappelant son contenu précédent : une prise faite entre-temps dans un butin n'est jamais écrasée.
+Les Marques du Rêve sont inscrites par un MJ. Les butins se préparent en secret, s'ouvrent aux joueurs qui s'y servent
+(objets et pièces, dans une même transaction), puis se ferment.
+
 ## Plusieurs MJ en même temps
 
 Chaque enregistrement de la table du MJ rappelle la **version** du monde sur laquelle il a été fait.

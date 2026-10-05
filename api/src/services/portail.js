@@ -9,6 +9,7 @@ import { transaction } from '../infra/base.js'
 import { empreinteJeton, genererJeton } from '../securite/jetons.js'
 import { hacherMotDePasse, verifierMotDePasse } from '../securite/motsDePasse.js'
 import { creerBibliotheque } from './bibliotheque.js'
+import { creerPersonnages } from './personnages.js'
 import { creerPlanning } from './planning.js'
 
 export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
@@ -21,6 +22,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
   const depots = creerDepots(db)
   const planningDeLaCampagne = creerPlanning({ db, depots, maintenant })
   const bibliothequeDeLaCampagne = creerBibliotheque({ db, depots, maintenant, images })
+  const personnagesDeLaCampagne = creerPersonnages({ db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne })
   const iso = () => maintenant().toISOString()
   const hacher = (motDePasse) => hacherMotDePasse(motDePasse, coutMotDePasse)
 
@@ -211,6 +213,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         depots.participations.retirer(cibleId, campagneId)
         planningDeLaCampagne.oublierNotificationsDe(cibleId, campagneId)
         bibliothequeDeLaCampagne.oublierRevelationsDe(cibleId, campagneId)
+        personnagesDeLaCampagne.oublierPersonnageDe(cibleId, campagneId)
       })
     },
 
@@ -278,6 +281,7 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
         sessions: depots.sessions.resumeDe(utilisateurId),
         ...planningDeLaCampagne.donneesPlanningDe(utilisateurId),
         ...bibliothequeDeLaCampagne.donneesBibliothequeDe(utilisateurId),
+        ...personnagesDeLaCampagne.donneesPersonnagesDe(utilisateurId),
       }
     },
 
@@ -300,5 +304,18 @@ export function creerPortail({ db, maintenant = () => new Date(), coutMotDePasse
 
     // --- Lot 3 : bibliothèque de PNJ (voir services/bibliotheque.js) ---
     ...bibliothequeDeLaCampagne,
+
+    // --- Fiches de personnage, inventaire, Marques du Rêve, butins (voir services/personnages.js) ---
+    ...personnagesDeLaCampagne,
+
+    /**
+     * Import d'un fichier préparé (ligne de commande) : les fiches de la bibliothèque, puis les butins,
+     * reliés aux objets du même nom. Les butins sont vérifiés avant d'écrire quoi que ce soit.
+     */
+    importerFiches(campagneId, donnees) {
+      personnagesDeLaCampagne.verifierButinsImportes(donnees?.butins ?? [])
+      const { nombre } = bibliothequeDeLaCampagne.importerFiches(campagneId, donnees)
+      return { nombre, butins: personnagesDeLaCampagne.importerButins(campagneId, donnees?.butins ?? []) }
+    },
   }
 }

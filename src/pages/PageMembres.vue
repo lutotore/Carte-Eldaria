@@ -90,7 +90,7 @@ async function copier() {
                 <template v-if="m.id !== moi.id">
                   <button v-if="aRetirer !== m.id" type="button" class="lien-bouton retirer" @click="aRetirer = m.id">Retirer</button>
                   <span v-else class="confirmer">
-                    Retirer {{ m.identifiant }} ?
+                    Retirer {{ m.identifiant }} ? Sa fiche de personnage sera supprimée.
                     <button type="button" class="bouton bouton--rouge" :disabled="enCours" @click="retirer(m)">Oui, retirer</button>
                     <button type="button" class="lien-bouton" @click="aRetirer = null">Annuler</button>
                   </span>

@@ -68,4 +68,17 @@ describe("client de l'API", () => {
     const portrait = await envoyerPortrait(1, 9, pdf).catch((e) => e)
     expect(portrait.message).toBe('Formats acceptés : PNG, JPEG ou WebP.')
   })
+
+  it('modifie une fiche de personnage champ par champ et prend dans un butin', async () => {
+    const fetch = repondre(204)
+    vi.stubGlobal('fetch', fetch)
+    await api.modifierPersonnage(1, 4, { niveau: 2 })
+    await api.changerBourse(1, 4, { po: 1 }, { po: 2 })
+    await api.prendreObjet(1, 7, 9, 2)
+    expect(fetch.mock.calls.map(([url, o]) => [o.method, url, JSON.parse(o.body)])).toEqual([
+      ['PUT', '/api/campagnes/1/personnages/4', { champs: { niveau: 2 } }],
+      ['PUT', '/api/campagnes/1/personnages/4/bourse', { avant: { po: 1 }, apres: { po: 2 } }],
+      ['POST', '/api/campagnes/1/butins/7/objets/9/prise', { quantite: 2 }],
+    ])
+  })
 })
