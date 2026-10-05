@@ -4,13 +4,17 @@ import { RouterLink } from 'vue-router'
 import { api } from '../api/client.js'
 import EditeurFiche from '../components/bibliotheque/EditeurFiche.vue'
 import NotesFiche from '../components/bibliotheque/NotesFiche.vue'
+import { rubriqueDe } from '../components/bibliotheque/rubriques.js'
 import VueFiche from '../components/bibliotheque/VueFiche.vue'
 
 const props = defineProps({ id: { type: String, required: true }, ficheId: { type: String, required: true } })
 
 const donnees = ref(null)
 const typeFiche = computed(() => donnees.value?.type ?? donnees.value?.fiche?.type ?? 'pnj')
-const retour = computed(() => (typeFiche.value === 'creature' ? { nom: 'bestiaire', texte: '← Bestiaire' } : { nom: 'bibliotheque', texte: '← Bibliothèque' }))
+const retour = computed(() => {
+  const rubrique = rubriqueDe(typeFiche.value)
+  return { nom: rubrique.liste, texte: `← ${rubrique.titre}` }
+})
 const erreur = ref('')
 
 async function charger() {

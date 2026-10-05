@@ -10,12 +10,18 @@ export const FACETTES_PNJ = ['nom', 'portrait', 'role', 'faction', 'lieu', 'atti
 export const FACETTES_PAR_TYPE = {
   pnj: FACETTES_PNJ,
   creature: ['nom', 'portrait', 'nature', 'description', 'habitat', 'ca', 'pv', 'vitesse', 'caracteristiques', 'sauvegardes', 'competences', 'defenses', 'sens', 'langues'],
+  lieu: ['nom', 'portrait', 'description', 'ambiance', 'acces'],
+  document: ['nom', 'fichier', 'description', 'texte'],
+  objet: ['nom', 'portrait', 'apparence', 'nature'],
 }
 
 /** Facettes titrées qu'on peut ajouter autant de fois qu'on veut (un secret, une capacité, une action…). */
 export const TITREES_PAR_TYPE = {
   pnj: ['secret'],
   creature: ['capacite', 'action', 'reaction', 'secret'],
+  lieu: ['secret'],
+  document: [],
+  objet: ['propriete', 'secret'],
 }
 
 /** Statistiques d'une créature que les joueurs peuvent estimer en attendant la vraie valeur. */
@@ -27,10 +33,18 @@ export const LIBELLES_FACETTES = {
   nature: 'Type et taille', habitat: 'Habitat', ca: "Classe d'armure", pv: 'Points de vie', vitesse: 'Vitesse', caracteristiques: 'Caractéristiques',
   sauvegardes: 'Jets de sauvegarde', competences: 'Compétences', defenses: 'Résistances et immunités', sens: 'Sens', langues: 'Langues',
   capacite: 'Capacité', action: 'Action', reaction: 'Réaction',
+  ambiance: 'Ambiance', acces: 'Accès', fichier: 'Document (image ou PDF)', texte: 'Texte', apparence: 'Apparence', propriete: 'Propriété',
+}
+
+/** Libellé d'une facette, qui peut dépendre du type de fiche (le portrait d'un lieu est une illustration…). */
+export function libelleFacette(type, cle) {
+  if (cle === 'portrait' && type !== 'pnj') return 'Illustration'
+  if (cle === 'nature' && type === 'objet') return 'Type et rareté'
+  return LIBELLES_FACETTES[cle] ?? cle
 }
 
 /** Titre de section, au pluriel, pour les facettes titrées. */
-export const SECTIONS_TITREES = { secret: 'Secrets', capacite: 'Capacités', action: 'Actions', reaction: 'Réactions' }
+export const SECTIONS_TITREES = { secret: 'Secrets', capacite: 'Capacités', action: 'Actions', reaction: 'Réactions', propriete: 'Propriétés' }
 
 export const ATTITUDES = [
   { cle: 'allie', nom: 'Allié' },
@@ -51,6 +65,7 @@ const LONGUEURS = {
   nom: 80, titre: 80, role: 200, faction: 200, lieu: 200, description: 4000, secret: 4000, portrait: 64,
   nature: 120, habitat: 200, ca: 120, pv: 120, vitesse: 120, caracteristiques: 300, sauvegardes: 300, competences: 300, defenses: 300, sens: 300, langues: 300,
   capacite: 4000, action: 4000, reaction: 4000,
+  ambiance: 1000, acces: 1000, fichier: 64, texte: 20000, apparence: 1000, propriete: 4000,
 }
 const cles = (liste) => liste.map((x) => x.cle)
 
@@ -86,7 +101,7 @@ export function vueJoueur(fiche, facettes, utilisateurId) {
     id: fiche.id,
     type: fiche.type,
     nom: trouver('nom')?.valeur ?? null,
-    facettes: visibles.filter((f) => f.cle !== 'nom' && f.cle !== 'portrait').map((f) => ({
+    facettes: visibles.filter((f) => !['nom', 'portrait', 'fichier'].includes(f.cle)).map((f) => ({
       id: f.id,
       cle: f.cle,
       titre: f.titre,
@@ -94,7 +109,24 @@ export function vueJoueur(fiche, facettes, utilisateurId) {
       pourMoiSeul: !f.revelations.some((r) => r.pourTous),
     })),
     portrait: trouver('portrait')?.valeur ?? null,
+    ...(fiche.type === 'document' ? {
+      fichier: trouver('fichier')?.valeur ?? null,
+      // Le destinataire d'un document peut le montrer au groupe : utile tant qu'une partie n'est connue que de lui.
+      aPartager: visibles.some((f) => !f.revelations.some((r) => r.pourTous)),
+    } : {}),
+    ...(fiche.type === 'lieu' ? { ile: fiche.ile ?? null } : {}),
   }
+}
+
+/**
+ * Un joueur a-t-il appris quelque chose entre deux vues d'une fiche (voir vueJoueur) ?
+ * Une facette de plus, un nom, un portrait ou le fichier d'un document, nouveaux ou changés.
+ */
+export function aDecouvert(avant, apres) {
+  if (!apres) return false
+  if (!avant) return true
+  const change = (cle) => Boolean(apres[cle]) && apres[cle] !== avant[cle]
+  return apres.facettes.length > avant.facettes.length || change('nom') || change('portrait') || change('fichier')
 }
 
 /** Résumé pour la liste du MJ : rien de révélé, une partie, ou tout (au groupe). */

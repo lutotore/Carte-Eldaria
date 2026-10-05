@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { campagneDe, estMj, estProprietaire } from './api/droits.js'
+import { RUBRIQUES } from './components/bibliotheque/rubriques.js'
 import { chargerMoi, moi } from './session.js'
 
 const page = (nom) => () => import(`./pages/${nom}.vue`)
@@ -15,10 +16,10 @@ const routes = [
   { path: '/compte', name: 'compte', component: page('PageCompte'), meta: { connecte: true, titre: 'Mon compte' } },
   { path: '/campagne/:id', name: 'carte', component: page('PageCarte'), props: true, meta: { connecte: true, membre: true, titre: 'Carte' } },
   { path: '/campagne/:id/seances', name: 'seances', component: page('PageSeances'), props: true, meta: { connecte: true, membre: true, titre: 'Séances' } },
-  { path: '/campagne/:id/bibliotheque', name: 'bibliotheque', component: page('PageBibliotheque'), props: (r) => ({ id: r.params.id, type: 'pnj' }), meta: { connecte: true, membre: true, titre: 'Bibliothèque' } },
-  { path: '/campagne/:id/bibliotheque/:ficheId', name: 'fiche', component: page('PageFiche'), props: true, meta: { connecte: true, membre: true, titre: 'Fiche' } },
-  { path: '/campagne/:id/bestiaire', name: 'bestiaire', component: page('PageBibliotheque'), props: (r) => ({ id: r.params.id, type: 'creature' }), meta: { connecte: true, membre: true, titre: 'Bestiaire' } },
-  { path: '/campagne/:id/bestiaire/:ficheId', name: 'creature', component: page('PageFiche'), props: true, meta: { connecte: true, membre: true, titre: 'Créature' } },
+  ...RUBRIQUES.flatMap((r) => [
+    { path: `/campagne/:id/${r.liste}`, name: r.liste, component: page('PageBibliotheque'), props: (route) => ({ id: route.params.id, type: r.type }), meta: { connecte: true, membre: true, bibliotheque: true, titre: r.titre } },
+    { path: `/campagne/:id/${r.liste}/:ficheId`, name: r.fiche, component: page('PageFiche'), props: true, meta: { connecte: true, membre: true, bibliotheque: true, titre: r.nature } },
+  ]),
   { path: '/campagne/:id/mj', name: 'mj', component: () => import('./mj/TableDuMj.vue'), props: true, meta: { connecte: true, mj: true, titre: 'Table du MJ' } },
   { path: '/campagne/:id/membres', name: 'membres', component: page('PageMembres'), props: true, meta: { connecte: true, proprietaire: true, titre: 'Membres' } },
 

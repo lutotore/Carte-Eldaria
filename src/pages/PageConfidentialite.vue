@@ -23,7 +23,7 @@ import { moi } from '../session.js'
         <li><strong>Ton rôle et ta date d'arrivée</strong> dans chaque campagne : ils déterminent ce que tu peux voir.</li>
         <li><strong>Tes sessions de connexion</strong> : leur date d'ouverture et d'expiration, pour te garder connecté·e sans redemander ton mot de passe.</li>
         <li><strong>Tes disponibilités</strong> (joueurs uniquement) : pour chaque date proposée, oui ou non et ta plage horaire, pour trouver une date qui convient à la table.</li>
-        <li><strong>Tes notes et croyances</strong> sur les personnages de la bibliothèque et les créatures du bestiaire, que tu écris et choisis de garder privées ou de partager avec le groupe.</li>
+        <li><strong>Tes notes et croyances</strong> sur les fiches de la bibliothèque (personnages, créatures, lieux, documents), que tu écris et choisis de garder privées ou de partager avec le groupe.</li>
         <li><strong>Tes estimations</strong> des statistiques d'une créature (« CA autour de 14 »), partagées avec le groupe et signées de ton identifiant.</li>
         <li><strong>Tes notifications</strong> : les messages du portail qui te sont adressés (sondage ouvert, séance fixée ou annulée) et s'ils ont été lus.</li>
         <li><strong>Ton adresse IP</strong>, uniquement en mémoire et pendant 15 minutes au plus, pour limiter les tentatives de connexion répétées. Elle n'est enregistrée ni dans la base ni dans les journaux du serveur.</li>

@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { formaterAltitude, NOMS_STATUT_ILE } from '../composables/format.js'
 import MissionLigne from './MissionLigne.vue'
 
@@ -7,6 +8,9 @@ const props = defineProps({
   ile: { type: Object, default: null },
   missions: { type: Array, default: () => [] },
   nomsIles: { type: Object, required: true },
+  /** Lieux connus de cette île, avec de quoi ouvrir leur fiche. */
+  lieux: { type: Array, default: () => [] },
+  campagneId: { type: String, default: null },
 })
 
 // Les relevés, du plus récent au plus ancien, avec l'écart par rapport au précédent.
@@ -45,6 +49,16 @@ const releves = computed(() => {
       </table>
       <p v-else class="vide">Aucun relevé d'altitude pour cette île.</p>
 
+      <div v-if="lieux.length" class="lieux">
+        <p class="petites-capitales">Lieux connus</p>
+        <ul>
+          <li v-for="l in lieux" :key="l.id">
+            <RouterLink v-if="campagneId" :to="{ name: 'lieu', params: { id: campagneId, ficheId: l.id } }">{{ l.nom ?? 'Lieu sans nom' }}</RouterLink>
+            <span v-else>{{ l.nom ?? 'Lieu sans nom' }}</span>
+          </li>
+        </ul>
+      </div>
+
       <div v-if="missions.length" class="missions">
         <p class="petites-capitales">Ordres pour cette île</p>
         <MissionLigne v-for="m in missions" :key="m.id" :mission="m" :nom-ile="nomsIles[m.ile]" />
@@ -82,6 +96,10 @@ h2 { font-size: 1.7rem; line-height: 1.2; }
 .releves caption { text-align: left; font-family: var(--f-titre); font-style: italic; font-size: 1.05rem; }
 .releves th { text-align: left; font-weight: 400; font-style: italic; color: var(--encre-2); }
 .baisse { color: var(--rouge); }
+.lieux { margin-top: 0.6rem; }
+.lieux .petites-capitales { margin: 0; color: var(--encre-2); }
+.lieux ul { margin: 0; padding-left: 1.1rem; }
+.lieux a { color: var(--ruban); }
 .missions { display: flex; flex-direction: column; margin-top: 0.6rem; }
 .missions .petites-capitales { margin: 0; color: var(--encre-2); }
 </style>

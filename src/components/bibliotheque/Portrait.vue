@@ -6,16 +6,28 @@ defineProps({
   imageId: { type: String, default: null },
   nom: { type: String, default: '' },
   taille: { type: String, default: 'petit' },
+  /** Type de fiche : choisit l'illustration par défaut (silhouette, paysage ou parchemin). */
+  genre: { type: String, default: 'pnj' },
 })
 </script>
 
 <template>
   <div class="portrait" :class="`portrait--${taille}`">
-    <img v-if="imageId" :src="api.urlImage(campagneId, imageId)" :alt="nom ? `Portrait de ${nom}` : 'Portrait'" loading="lazy">
-    <svg v-else viewBox="0 0 60 80" role="img" aria-label="Pas de portrait">
+    <img v-if="imageId" :src="api.urlImage(campagneId, imageId)" :alt="nom ? (['pnj', 'creature'].includes(genre) ? `Portrait de ${nom}` : nom) : 'Illustration'" loading="lazy">
+    <svg v-else viewBox="0 0 60 80" role="img" :aria-label="genre === 'document' ? 'Document' : 'Pas d’illustration'">
       <rect width="60" height="80" fill="currentColor" opacity=".08" />
-      <circle cx="30" cy="30" r="12" fill="currentColor" opacity=".35" />
-      <path d="M10 76c2-16 10-24 20-24s18 8 20 24" fill="currentColor" opacity=".35" />
+      <g v-if="genre === 'lieu'" fill="currentColor" opacity=".35">
+        <path d="M4 62l16-22 10 12 8-9 18 19z" />
+        <circle cx="44" cy="22" r="6" />
+      </g>
+      <g v-else-if="genre === 'document'" fill="none" stroke="currentColor" stroke-width="2" opacity=".45">
+        <path d="M14 10h26l8 8v52H14z" />
+        <path d="M20 28h20M20 36h22M20 44h18M20 52h20" />
+      </g>
+      <g v-else fill="currentColor" opacity=".35">
+        <circle cx="30" cy="30" r="12" />
+        <path d="M10 76c2-16 10-24 20-24s18 8 20 24" />
+      </g>
     </svg>
   </div>
 </template>

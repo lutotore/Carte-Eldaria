@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { noterCroyance } from '../../../src/domain/suivi.js'
 import { erreurs } from '../domaine/erreurs.js'
 import {
-  ESTIMABLES, erreurFacette, erreurNote, erreurTitreSecret, etatDeRevelation, FACETTES_PAR_TYPE, grilleEstimations,
+  aDecouvert, ESTIMABLES, erreurFacette, erreurNote, erreurTitreSecret, etatDeRevelation, FACETTES_PAR_TYPE, grilleEstimations,
   LIBELLES_FACETTES, TITREES_PAR_TYPE, vueJoueur,
 } from '../../../src/domain/fiches.js'
 import { estMj } from '../domaine/roles.js'
@@ -11,9 +11,15 @@ import { creerDepotsBibliotheque } from '../infra/depotsBibliotheque.js'
 import { creerDepotsPlanning } from '../infra/depotsPlanning.js'
 
 const TAILLE_MAX_IMAGE = 5 * 1024 * 1024
+const TAILLE_MAX_PDF = 10 * 1024 * 1024
+/** Facette qui reçoit le fichier téléversé : le portrait, ou le document lui-même pour un handout. */
+const facetteFichier = (type) => (type === 'document' ? 'fichier' : 'portrait')
 const LONGUEUR_MAX_ESTIMATION = 200
+/** Adresse de la page de chaque type de fiche, et nom donné tant que le vrai n'est pas connu. */
+const CHEMINS = { pnj: 'bibliotheque', creature: 'bestiaire', lieu: 'lieux', document: 'documents', objet: 'objets' }
+const INCONNUS = { pnj: 'un personnage', creature: 'une créature', lieu: 'un lieu', document: 'un document', objet: 'un objet' }
 /** Clés du fichier d'import pour chaque facette titrée. */
-const LISTES_IMPORT = { secret: 'secrets', capacite: 'capacites', action: 'actions', reaction: 'reactions' }
+const LISTES_IMPORT = { secret: 'secrets', capacite: 'capacites', action: 'actions', reaction: 'reactions', propriete: 'proprietes' }
 const LONGUEUR_MAX_NOTES_MJ = 20_000
 
 /** Type d'image reconnu à ses premiers octets (on ne se fie jamais au nom ni au type annoncé). */
@@ -22,6 +28,7 @@ function typeImage(octets) {
   if (debut(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)) return 'image/png'
   if (debut(0xff, 0xd8, 0xff)) return 'image/jpeg'
   if (octets.subarray(0, 4).toString('latin1') === 'RIFF' && octets.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp'
+  if (octets.subarray(0, 5).toString('latin1') === '%PDF-') return 'application/pdf'
   return null
 }
 
@@ -87,17 +94,53 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
     exiger(Object.hasOwn(FACETTES_PAR_TYPE, type), erreurs.requeteInvalide('Type de fiche inconnu.'))
   }
 
-  function creerFicheAvecFacettes(campagneId, { type = 'pnj', nom, facettes = {}, notesMj = '', ...listes }) {
+  /** Îles du monde de la campagne, pour rattacher un lieu. */
+  function ilesDe(campagneId) {
+    const contenu = depots.etats.lire(campagneId)?.contenu
+    const iles = contenu ? JSON.parse(contenu).iles ?? {} : {}
+    return Object.entries(iles).map(([id, ile]) => ({ id, nom: ile.nom, revelee: Boolean(ile.revelee) }))
+  }
+
+  /** L'île d'un lieu, telle qu'un lecteur a le droit de la connaître : un joueur ne la voit que révélée sur la carte. */
+  function ileDuLieu(fiche, iles, pourMj) {
+    const ile = iles.find((i) => i.id === fiche.ile && (pourMj || i.revelee))
+    return { ile: ile?.id ?? null, nomIle: ile?.nom ?? null }
+  }
+
+  /** Format du fichier d'un document (PDF ou image), pour l'afficher ou le proposer au téléchargement. */
+  function typeFichier(campagneId, imageId) {
+    return imageId ? biblio.images.parId(imageId, campagneId)?.typeMime ?? null : null
+  }
+
+  /** Ce qu'un joueur voit d'une fiche, complété de ce qui dépend du reste de la campagne. */
+  function vuePourJoueur(fiche, demandeurId, campagneId, iles) {
+    const vue = vueJoueur(fiche, fiche.facettes, demandeurId)
+    if (!vue) return null
+    if (fiche.type === 'lieu') return { ...vue, ...ileDuLieu(fiche, iles, false) }
+    if (fiche.type === 'document') return { ...vue, typeFichier: typeFichier(campagneId, vue.fichier) }
+    return vue
+  }
+
+  function exigerIle(campagneId, ile) {
+    exiger(ile === '' || ile === null || ilesDe(campagneId).some((i) => i.id === ile), erreurs.requeteInvalide('Île inconnue.'))
+  }
+
+  function creerFicheAvecFacettes(campagneId, { type = 'pnj', nom, ile = '', facettes = {}, notesMj = '', ...listes }) {
     exigerType(type)
     const ficheId = biblio.fiches.creer({ campagneId, type, creeLe: iso() })
+    if (type === 'lieu' && ile) {
+      exigerIle(campagneId, ile)
+      biblio.fiches.changerIle(ficheId, ile)
+    }
     let ordre = 0
     for (const cle of FACETTES_PAR_TYPE[type]) {
+      const fichier = cle === 'portrait' || cle === 'fichier'
       const valeur = cle === 'nom' ? nom : String(facettes[cle] ?? '')
-      if (cle !== 'portrait') {
+      if (!fichier) {
         const probleme = erreurFacette(cle, valeur)
         exiger(!probleme, erreurs.requeteInvalide(`${nom} — ${cle} : ${probleme}`))
       }
-      biblio.facettes.creer({ ficheId, cle, valeur: cle === 'portrait' ? '' : valeur, ordre: (ordre += 1) })
+      biblio.facettes.creer({ ficheId, cle, valeur: fichier ? '' : valeur, ordre: (ordre += 1) })
     }
     for (const cle of TITREES_PAR_TYPE[type]) {
       for (const element of listes[LISTES_IMPORT[cle]] ?? []) {
@@ -130,16 +173,12 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
    */
   function notifierDecouvertes(campagneId, avant, apres) {
     for (const joueur of joueursDe(campagneId)) {
-      const vuAvant = vueJoueur(avant, avant.facettes, joueur.id)?.facettes.length ?? -1
       const vueApres = vueJoueur(apres, apres.facettes, joueur.id)
-      const nomAvant = vueJoueur(avant, avant.facettes, joueur.id)?.nom
-      const nomApres = vueApres?.nom
-      const portraitNouveau = vueApres?.portrait && !vueJoueur(avant, avant.facettes, joueur.id)?.portrait
-      const decouvre = vueApres && (vueApres.facettes.length > vuAvant || (nomApres && !nomAvant) || portraitNouveau)
-      if (!decouvre) continue
-      const chemin = apres.type === 'creature' ? 'bestiaire' : 'bibliotheque'
+      if (!aDecouvert(vueJoueur(avant, avant.facettes, joueur.id), vueApres)) continue
+      const nomApres = vueApres.nom
+      const chemin = CHEMINS[apres.type]
       notifications.creer({
-        utilisateurId: joueur.id, campagneId, texte: `Nouvelle information : ${nomApres ?? (apres.type === 'creature' ? 'une créature' : 'un personnage')}.`,
+        utilisateurId: joueur.id, campagneId, texte: `Nouvelle information : ${nomApres ?? INCONNUS[apres.type]}.`,
         lien: `/campagne/${campagneId}/${chemin}/${apres.id}`, creeLe: iso(),
       })
     }
@@ -153,8 +192,10 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       exigerType(type)
       const fiches = fichesCompletes(campagneId).filter((f) => f.type === type)
       if (!estMj(role)) {
-        return { estMj: false, fiches: fiches.map((f) => vueJoueur(f, f.facettes, demandeurId)).filter(Boolean) }
+        const iles = ilesDe(campagneId)
+        return { estMj: false, fiches: fiches.map((f) => vuePourJoueur(f, demandeurId, campagneId, iles)).filter(Boolean) }
       }
+      const iles = ilesDe(campagneId)
       const nombres = Object.fromEntries(biblio.notes.nombreParFiche(campagneId).map((n) => [n.ficheId, n.n]))
       return {
         estMj: true,
@@ -163,7 +204,8 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
           type: f.type,
           nom: valeurDe(f, 'nom'),
           portrait: valeurDe(f, 'portrait') || null,
-          role: valeurDe(f, f.type === 'creature' ? 'nature' : 'role'),
+          role: valeurDe(f, { creature: 'nature', pnj: 'role', objet: 'nature' }[f.type] ?? ''),
+          ...(f.type === 'lieu' ? ileDuLieu(f, iles, true) : {}),
           attitude: valeurDe(f, 'attitude'),
           revelation: etatDeRevelation(f.facettes),
           nombreNotes: nombres[f.id] ?? 0,
@@ -185,11 +227,13 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
           facettes: fiche.facettes.map(({ ficheId: _f, ...f }) => f),
           notes: notesVisibles(fiche.id, demandeurId, true),
           estimations: fiche.type === 'creature' ? estimationsDe(fiche.id) : {},
+          ...(fiche.type === 'lieu' ? { ile: fiche.ile ?? null, iles: ilesDe(campagneId).map(({ id, nom }) => ({ id, nom })) } : {}),
+          ...(fiche.type === 'document' ? { typeFichier: typeFichier(campagneId, valeurDe(fiche, 'fichier')) } : {}),
           joueurs: joueursDe(campagneId).map(({ id, identifiant, role: r }) => ({ id, identifiant, role: r })),
           lectures: lecturesDe(campagneId),
         }
       }
-      const vue = vueJoueur(fiche, fiche.facettes, demandeurId)
+      const vue = vuePourJoueur(fiche, demandeurId, campagneId, ilesDe(campagneId))
       exiger(vue, erreurs.introuvable('Fiche'))
       const grille = fiche.type === 'creature' ? grilleEstimations(fiche.facettes, estimationsDe(fiche.id), demandeurId) : []
       return { estMj: false, fiche: vue, grille, notes: notesVisibles(fiche.id, demandeurId, false) }
@@ -207,7 +251,7 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       exigerMj(demandeurId, campagneId)
       const fiche = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
       const facette = exigerFacette(fiche, facetteId)
-      exiger(facette.cle !== 'portrait', erreurs.requeteInvalide('Le portrait se change en téléversant une image.'))
+      exiger(facette.cle !== 'portrait' && facette.cle !== 'fichier', erreurs.requeteInvalide('Une image ou un document se change en téléversant un fichier.'))
       const probleme = erreurFacette(facette.cle, valeur)
       exiger(!probleme, erreurs.requeteInvalide(probleme))
       const titree = TITREES_PAR_TYPE[fiche.type].includes(facette.cle)
@@ -242,12 +286,12 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
     supprimerFiche({ demandeurId, campagneId, ficheId }) {
       exigerMj(demandeurId, campagneId)
       const fiche = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
-      const portrait = valeurDe(fiche, 'portrait')
+      const image = valeurDe(fiche, facetteFichier(fiche.type))
       transaction(db, () => {
         biblio.fiches.supprimer(fiche.id)
-        if (portrait) biblio.images.supprimer(portrait)
+        if (image) biblio.images.supprimer(image)
       })
-      if (portrait) images.supprimer(portrait)
+      if (image) images.supprimer(image)
     },
 
     /** Remplace la liste de ceux qui voient une facette : tout le groupe, certains joueurs, ou personne. */
@@ -279,6 +323,40 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       })
     },
 
+    changerIle({ demandeurId, campagneId, ficheId, ile }) {
+      exigerMj(demandeurId, campagneId)
+      const fiche = exigerFiche(ficheId, campagneId)
+      exiger(fiche.type === 'lieu', erreurs.requeteInvalide('Seul un lieu se rattache à une île.'))
+      exigerIle(campagneId, ile)
+      biblio.fiches.changerIle(fiche.id, ile || null)
+    },
+
+    /** Le destinataire d'un document le partage avec tout le groupe : seulement ce qu'il en voit lui-même. */
+    partager({ demandeurId, campagneId, ficheId }) {
+      const role = roleDans(demandeurId, campagneId)
+      exiger(role, erreurs.interdit())
+      const avant = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
+      const vue = vueJoueur(avant, avant.facettes, demandeurId)
+      exiger(estMj(role) || vue, erreurs.introuvable('Fiche'))
+      exiger(!estMj(role), erreurs.interdit())
+      exiger(avant.type === 'document', erreurs.requeteInvalide('Seuls les documents se partagent.'))
+      const visibles = avant.facettes.filter((f) => f.valeur !== '' && f.revelations.some((r) => r.pourTous || r.utilisateurId === demandeurId))
+      transaction(db, () => {
+        for (const facette of visibles) biblio.facettes.remplacerRevelations(facette.id, [null], iso())
+        const apres = ficheComplete(ficheId, campagneId)
+        const auteur = depots.utilisateurs.parId(demandeurId).identifiant
+        for (const joueur of joueursDe(campagneId).filter((j) => j.id !== demandeurId)) {
+          const vueAvant = vueJoueur(avant, avant.facettes, joueur.id)
+          const vueApres = vueJoueur(apres, apres.facettes, joueur.id)
+          if (!aDecouvert(vueAvant, vueApres)) continue
+          notifications.creer({
+            utilisateurId: joueur.id, campagneId, texte: `${auteur} partage un document : ${vueApres.nom ?? 'un document'}.`,
+            lien: `/campagne/${campagneId}/documents/${ficheId}`, creeLe: iso(),
+          })
+        }
+      })
+    },
+
     /** Estimation partagée par les joueurs d'une statistique de créature ; un texte vide l'efface. */
     estimer({ demandeurId, campagneId, ficheId, cle, texte }) {
       const role = roleDans(demandeurId, campagneId)
@@ -295,12 +373,15 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
     definirPortrait({ demandeurId, campagneId, ficheId, octets }) {
       exigerMj(demandeurId, campagneId)
       const fiche = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
-      exiger(Buffer.isBuffer(octets), erreurs.requeteInvalide('Envoie une image PNG, JPEG ou WebP.'))
-      exiger(octets.length <= TAILLE_MAX_IMAGE, erreurs.requeteInvalide('Image trop lourde (5 Mo au plus).'))
+      const accepteLesPdf = fiche.type === 'document'
+      exiger(Buffer.isBuffer(octets), erreurs.requeteInvalide(accepteLesPdf ? 'Envoie une image ou un PDF.' : 'Envoie une image PNG, JPEG ou WebP.'))
       const typeMime = typeImage(octets)
-      exiger(typeMime, erreurs.requeteInvalide('Formats acceptés : PNG, JPEG ou WebP.'))
+      exiger(typeMime && (accepteLesPdf || typeMime !== 'application/pdf'),
+        erreurs.requeteInvalide(accepteLesPdf ? 'Formats acceptés : PNG, JPEG, WebP ou PDF.' : 'Formats acceptés : PNG, JPEG ou WebP.'))
+      const tailleMax = typeMime === 'application/pdf' ? TAILLE_MAX_PDF : TAILLE_MAX_IMAGE
+      exiger(octets.length <= tailleMax, erreurs.requeteInvalide(`Fichier trop lourd (${tailleMax / 1024 / 1024} Mo au plus).`))
 
-      const facette = fiche.facettes.find((f) => f.cle === 'portrait')
+      const facette = fiche.facettes.find((f) => f.cle === facetteFichier(fiche.type))
       const ancienne = facette.valeur
       const imageId = randomUUID()
       images.ecrire(imageId, octets)
@@ -325,7 +406,10 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
       const image = biblio.images.parId(String(imageId), campagneId)
       exiger(image, erreurs.introuvable('Image'))
       if (!estMj(role)) {
-        const visible = fichesCompletes(campagneId).some((f) => vueJoueur(f, f.facettes, demandeurId)?.portrait === image.id)
+        const visible = fichesCompletes(campagneId).some((f) => {
+          const vue = vueJoueur(f, f.facettes, demandeurId)
+          return vue && (vue.portrait === image.id || vue.fichier === image.id)
+        })
         exiger(visible, erreurs.introuvable('Image'))
       }
       const octets = images.lire(image.id)
@@ -407,7 +491,7 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
         const fiche = ficheComplete(ficheId, campagneId)
         const role = roleDans(utilisateurId, campagneId)
         if (estMj(role)) return valeurDe(fiche, 'nom')
-        const inconnu = fiche.type === 'creature' ? 'une créature inconnue' : 'un personnage inconnu'
+        const inconnu = `${INCONNUS[fiche.type]} inconnu${fiche.type === 'creature' ? 'e' : ''}`
         return role ? vueJoueur(fiche, fiche.facettes, utilisateurId)?.nom ?? inconnu : inconnu
       }
       return {

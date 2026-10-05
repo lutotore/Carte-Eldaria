@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { api } from '../api/client.js'
 import Portrait from '../components/bibliotheque/Portrait.vue'
+import { RUBRIQUES, rubriqueDe } from '../components/bibliotheque/rubriques.js'
 import { utiliserEnvoi } from '../composables/envoi.js'
 import { ATTITUDES, valeurLisible } from '../domain/fiches.js'
 
@@ -11,24 +12,13 @@ const props = defineProps({
   type: { type: String, default: 'pnj' },
 })
 
-const TEXTES = {
-  pnj: {
-    titre: 'Bibliothèque', route: 'fiche', inconnu: 'Personnage inconnu', nouveau: 'Nouveau PNJ',
-    mj: 'Tous les PNJ de la campagne. Les joueurs ne voient que ce que tu révèles.', joueur: 'Les personnages croisés par la Compagnie, et ce que vous savez d’eux.',
-    videMj: 'Aucun PNJ pour l’instant.', videJoueur: 'Aucun personnage connu pour l’instant.',
-  },
-  creature: {
-    titre: 'Bestiaire', route: 'creature', inconnu: 'Créature inconnue', nouveau: 'Nouvelle créature',
-    mj: 'Toutes les créatures de la campagne. Les joueurs ne voient que ce que tu révèles.', joueur: 'Les créatures affrontées, et ce que vous en avez appris.',
-    videMj: 'Aucune créature pour l’instant.', videJoueur: 'Aucune créature connue pour l’instant.',
-  },
-}
-const textes = computed(() => TEXTES[props.type])
+const textes = computed(() => rubriqueDe(props.type))
 const router = useRouter()
 
 const donnees = ref(null)
 const recherche = ref('')
 const attitude = ref('')
+const ile = ref('')
 const nouveauNom = ref('')
 const { enCours, erreur, envoyer } = utiliserEnvoi()
 
@@ -43,43 +33,64 @@ async function charger() {
   }
 }
 onMounted(charger)
-watch(() => props.type, () => { donnees.value = null; recherche.value = ''; attitude.value = ''; charger() })
+watch(() => props.type, () => { donnees.value = null; recherche.value = ''; attitude.value = ''; ile.value = ''; charger() })
 
 const LIBELLES_REVELATION = { cache: 'Caché', partiel: 'En partie révélé', revele: 'Révélé' }
 
-/** Pour un joueur, attitude et rôle ne sont connus que s'ils ont été révélés. */
+const ROLE_PAR_TYPE = { pnj: 'role', creature: 'nature' }
+
+/** Pour un joueur, attitude et rôle ne sont connus que s'ils ont été révélés. Un lieu se résume à son île. */
 function resume(fiche) {
-  if (donnees.value.estMj) return fiche
-  const valeur = (cle) => fiche.facettes.find((f) => f.cle === cle)?.valeur ?? ''
-  return { ...fiche, role: valeur(props.type === 'creature' ? 'nature' : 'role'), attitude: valeur('attitude') }
+  const base = donnees.value.estMj ? fiche : (() => {
+    const valeur = (cle) => fiche.facettes.find((f) => f.cle === cle)?.valeur ?? ''
+    return { ...fiche, role: valeur(ROLE_PAR_TYPE[props.type]), attitude: valeur('attitude') }
+  })()
+  return props.type === 'lieu' ? { ...base, role: base.nomIle ?? '' } : base
 }
+
+/** Les îles des lieux de la liste, pour filtrer. */
+const iles = computed(() => {
+  if (props.type !== 'lieu' || !donnees.value) return []
+  const noms = new Map(donnees.value.fiches.filter((f) => f.ile).map((f) => [f.ile, f.nomIle]))
+  return [...noms].map(([id, nom]) => ({ id, nom })).sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))
+})
 
 const fiches = computed(() => {
   if (!donnees.value) return []
   const texte = recherche.value.trim().toLocaleLowerCase('fr')
   return donnees.value.fiches.map(resume).filter((f) => (!attitude.value || f.attitude === attitude.value)
+    && (!ile.value || f.ile === ile.value)
     && (!texte || `${f.nom ?? ''} ${f.role ?? ''}`.toLocaleLowerCase('fr').includes(texte)))
 })
 
 const creer = () => envoyer(async () => {
   const { ficheId } = await api.creerFiche(props.id, nouveauNom.value, props.type)
-  await router.push({ name: textes.value.route, params: { id: props.id, ficheId } })
+  await router.push({ name: textes.value.fiche, params: { id: props.id, ficheId } })
 })
 </script>
 
 <template>
   <main class="bibliotheque">
+    <nav class="rubans" aria-label="Rubriques de la bibliothèque">
+      <RouterLink v-for="r in RUBRIQUES" :key="r.type" :to="{ name: r.liste, params: { id } }" class="ruban" :class="{ actif: r.type === type }" :aria-current="r.type === type ? 'page' : undefined">{{ r.onglet }}</RouterLink>
+    </nav>
     <header class="entete">
       <h1>{{ textes.titre }}</h1>
       <p class="sous-titre">{{ donnees?.estMj ? textes.mj : textes.joueur }}</p>
     </header>
 
     <div class="outils">
-      <label class="champ">Rechercher <input v-model="recherche" type="search" placeholder="Nom, rôle…"></label>
+      <label class="champ">Rechercher <input v-model="recherche" type="search" placeholder="Nom…"></label>
       <label v-if="type === 'pnj'" class="champ">Attitude
         <select v-model="attitude">
           <option value="">Toutes</option>
           <option v-for="a in ATTITUDES" :key="a.cle" :value="a.cle">{{ a.nom }}</option>
+        </select>
+      </label>
+      <label v-if="iles.length > 1" class="champ">Île
+        <select v-model="ile">
+          <option value="">Toutes</option>
+          <option v-for="i in iles" :key="i.id" :value="i.id">{{ i.nom }}</option>
         </select>
       </label>
       <form v-if="donnees?.estMj" class="nouveau" @submit.prevent="creer">
@@ -93,8 +104,8 @@ const creer = () => envoyer(async () => {
 
     <ul class="grille">
       <li v-for="f in fiches" :key="f.id">
-        <RouterLink :to="{ name: textes.route, params: { id, ficheId: f.id } }" class="carte papier">
-          <Portrait :campagne-id="id" :image-id="f.portrait" :nom="f.nom ?? ''" />
+        <RouterLink :to="{ name: textes.fiche, params: { id, ficheId: f.id } }" class="carte papier">
+          <Portrait :campagne-id="id" :image-id="f.portrait" :nom="f.nom ?? ''" :genre="type" />
           <div class="texte">
             <strong>{{ f.nom ?? textes.inconnu }}</strong>
             <span v-if="f.role" class="role">{{ f.role }}</span>
@@ -113,6 +124,10 @@ const creer = () => envoyer(async () => {
 <style scoped>
 .bibliotheque { max-width: 1100px; margin: 0 auto; padding: 1.5rem max(16px, env(safe-area-inset-left)) 2rem; display: flex; flex-direction: column; gap: 1.2rem; }
 h1 { font-size: clamp(2rem, 5vw, 2.8rem); color: var(--laiton-clair); text-shadow: 0 2px 2px rgba(0, 0, 0, 0.6); }
+.rubans { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ruban { padding: 0.3rem 0.9rem; border: 1px solid var(--couture); border-radius: 3px 3px 0 0; color: #e8d6b0; text-decoration: none; background: rgba(0, 0, 0, 0.18); }
+.ruban:hover { color: var(--laiton-clair); }
+.ruban.actif { background: var(--ruban); border-color: var(--ruban); color: #f6ecd4; }
 .sous-titre { margin: 0.2rem 0 0; color: #cdb48c; font-style: italic; }
 .outils { display: flex; flex-wrap: wrap; gap: 0.8rem 1.2rem; align-items: flex-end; }
 .outils .champ { color: #cdb48c; }

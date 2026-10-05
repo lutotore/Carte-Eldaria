@@ -51,7 +51,7 @@ export function construireApp({ portail, config }) {
   // Seul le JSON est accepté : un formulaire HTML piégé sur un autre site ne peut pas en envoyer.
   app.removeContentTypeParser('text/plain')
   // Portraits envoyés bruts. Ces types déclenchent une vérification CORS : un autre site ne peut pas en envoyer.
-  app.addContentTypeParser(['image/png', 'image/jpeg', 'image/webp'], { parseAs: 'buffer', bodyLimit: 6 * 1024 * 1024 },
+  app.addContentTypeParser(['image/png', 'image/jpeg', 'image/webp', 'application/pdf'], { parseAs: 'buffer', bodyLimit: 11 * 1024 * 1024 },
     (request, corps, termine) => termine(null, corps))
 
   const session = {

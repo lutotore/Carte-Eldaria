@@ -104,3 +104,30 @@ describe('bestiaire par HTTP', () => {
     expect((await requete(app, { url: `${base}/bibliotheque?type=dragon`, cookie: cookieTom })).statusCode).toBe(400)
   })
 })
+
+describe('documents par HTTP', () => {
+  it('téléverse un PDF, le sert en téléchargement, et le joueur le partage', async () => {
+    const { app, cookieTom, cookieLea, base } = await avecFiche()
+    const { ficheId } = (await requete(app, { method: 'POST', url: `${base}/fiches`, cookie: cookieTom, payload: { nom: 'Lettre', type: 'document' } })).json()
+    const pdf = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.alloc(32, 2)])
+    const envoi = await app.inject({ method: 'PUT', url: `${base}/fiches/${ficheId}/portrait`, payload: pdf, headers: { origin: ORIGINE, cookie: cookieTom, 'content-type': 'application/pdf' } })
+    expect(envoi.statusCode).toBe(200)
+    const telechargement = await requete(app, { url: `${base}/images/${envoi.json().imageId}`, cookie: cookieTom })
+    expect(telechargement.headers['content-type']).toBe('application/pdf')
+    expect(telechargement.headers['content-disposition']).toMatch(/^attachment/)
+
+    const fiche = (await requete(app, { url: `${base}/fiches/${ficheId}`, cookie: cookieTom })).json()
+    const leaId = fiche.joueurs.find((j) => j.identifiant === 'lea').id
+    const nom = fiche.facettes.find((f) => f.cle === 'nom')
+    await requete(app, { method: 'PUT', url: `${base}/fiches/${ficheId}/facettes/${nom.id}/revelation`, cookie: cookieTom, payload: { pourTous: false, joueurs: [leaId] } })
+    expect((await requete(app, { method: 'POST', url: `${base}/fiches/${ficheId}/partage`, cookie: cookieLea })).statusCode).toBe(204)
+  })
+
+  it("rattache un lieu à une île", async () => {
+    const { app, cookieTom, base } = await avecFiche()
+    const { ficheId } = (await requete(app, { method: 'POST', url: `${base}/fiches`, cookie: cookieTom, payload: { nom: 'Le Pic', type: 'lieu' } })).json()
+    expect((await requete(app, { method: 'PUT', url: `${base}/fiches/${ficheId}/ile`, cookie: cookieTom, payload: { ile: 'aeronis' } })).statusCode).toBe(204)
+    expect((await requete(app, { url: `${base}/fiches/${ficheId}`, cookie: cookieTom })).json().ile).toBe('aeronis')
+  })
+})
+

@@ -6,8 +6,9 @@ export function creerDepotsBibliotheque(db) {
     fiches: {
       creer: ({ campagneId, type, creeLe }) => Number(requete('INSERT INTO fiches (campagne_id, type, cree_le) VALUES (?, ?, ?)')
         .run(campagneId, type, creeLe).lastInsertRowid),
-      parId: (ficheId, campagneId) => requete('SELECT id, type, notes_mj AS notesMj FROM fiches WHERE id = ? AND campagne_id = ?').get(ficheId, campagneId),
-      deLaCampagne: (campagneId) => requete('SELECT id, type, notes_mj AS notesMj FROM fiches WHERE campagne_id = ? ORDER BY id').all(campagneId),
+      parId: (ficheId, campagneId) => requete('SELECT id, type, notes_mj AS notesMj, ile FROM fiches WHERE id = ? AND campagne_id = ?').get(ficheId, campagneId),
+      deLaCampagne: (campagneId) => requete('SELECT id, type, notes_mj AS notesMj, ile FROM fiches WHERE campagne_id = ? ORDER BY id').all(campagneId),
+      changerIle: (ficheId, ile) => requete('UPDATE fiches SET ile = ? WHERE id = ?').run(ile, ficheId),
       changerNotesMj: (ficheId, notesMj) => requete('UPDATE fiches SET notes_mj = ? WHERE id = ?').run(notesMj, ficheId),
       supprimer: (ficheId) => requete('DELETE FROM fiches WHERE id = ?').run(ficheId),
     },

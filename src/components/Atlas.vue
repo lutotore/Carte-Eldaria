@@ -10,6 +10,10 @@ import { formaterAltitude, NOMS_ACTE } from '../composables/format.js'
 const props = defineProps({
   monde: { type: Object, required: true },
   mentionMj: { type: Boolean, default: false },
+  /** Lieux connus, rangés par île (voir lieuxParIle). */
+  lieux: { type: Map, default: () => new Map() },
+  campagneId: { type: String, default: null },
+  ileInitiale: { type: String, default: null },
 })
 
 const CLE_VUE = 'eldaria-vue'
@@ -19,7 +23,7 @@ const lireVue = () => {
 const vue = ref(lireVue())
 watch(vue, (v) => { try { localStorage.setItem(CLE_VUE, v) } catch { /* stockage indisponible : sans conséquence */ } })
 
-const selection = ref(null)
+const selection = ref(props.monde.iles.some((i) => i.id === props.ileInitiale) ? props.ileInitiale : null)
 const choisir = (id) => { selection.value = selection.value === id ? null : id }
 
 const nomsIles = computed(() => ({
@@ -27,6 +31,7 @@ const nomsIles = computed(() => ({
   ...Object.fromEntries(props.monde.iles.map((i) => [i.id, i.nom])),
 }))
 const ileChoisie = computed(() => props.monde.iles.find((i) => i.id === selection.value) ?? null)
+const lieuxIle = computed(() => props.lieux.get(selection.value) ?? [])
 const missionsIle = computed(() => props.monde.missions.filter((m) => m.ile === selection.value))
 
 const etiquettes = computed(() => [
@@ -72,7 +77,7 @@ const etiquettes = computed(() => [
         </p>
       </section>
 
-      <FicheReleve class="carnet" :ile="ileChoisie" :missions="missionsIle" :noms-iles="nomsIles" />
+      <FicheReleve class="carnet" :ile="ileChoisie" :missions="missionsIle" :noms-iles="nomsIles" :lieux="lieuxIle" :campagne-id="campagneId" />
     </div>
 
     <div class="bas">

@@ -78,6 +78,17 @@ describe('base de données', () => {
     migree.close()
   })
 
+  it('accepte les nouveaux types de fiche et l’île des lieux (migration 6)', () => {
+    const db = ouvrirBase(':memory:')
+    db.exec("INSERT INTO campagnes (nom, cree_le) VALUES ('Eldaria', 'd')")
+    for (const type of ['pnj', 'creature', 'lieu', 'document', 'objet']) {
+      db.prepare('INSERT INTO fiches (campagne_id, type, cree_le) VALUES (1, ?, ?)').run(type, 'd')
+    }
+    expect(() => db.prepare("INSERT INTO fiches (campagne_id, type, cree_le) VALUES (1, 'dragon', 'd')").run()).toThrow()
+    db.prepare("UPDATE fiches SET ile = 'cendrebas' WHERE type = 'lieu'").run()
+    expect(db.prepare("SELECT ile FROM fiches WHERE type = 'lieu'").get().ile).toBe('cendrebas')
+  })
+
   it('refuse un rôle inconnu', () => {
     const db = ouvrirBase(':memory:')
     db.prepare("INSERT INTO utilisateurs (identifiant, empreinte_mdp, cree_le) VALUES ('tom', 'x', 'd')").run()

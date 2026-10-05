@@ -24,10 +24,9 @@ async function deconnexion() {
       <RouterLink v-if="plusieursCampagnes" to="/" class="retour">Mes campagnes</RouterLink>
       <span class="marque">{{ campagne?.nom ?? 'Eldaria' }}</span>
       <template v-if="campagne">
-        <RouterLink :to="{ name: 'carte', params: { id: campagne.id } }" exact-active-class="actif">Carte</RouterLink>
+        <RouterLink :to="{ name: 'carte', params: { id: campagne.id } }" :class="{ actif: route.name === 'carte' }">Carte</RouterLink>
         <RouterLink :to="{ name: 'seances', params: { id: campagne.id } }" active-class="actif">Séances</RouterLink>
-        <RouterLink :to="{ name: 'bibliotheque', params: { id: campagne.id } }" active-class="actif">Bibliothèque</RouterLink>
-        <RouterLink :to="{ name: 'bestiaire', params: { id: campagne.id } }" active-class="actif">Bestiaire</RouterLink>
+        <RouterLink :to="{ name: 'bibliotheque', params: { id: campagne.id } }" :class="{ actif: route.meta.bibliotheque }">Bibliothèque</RouterLink>
         <RouterLink v-if="estMj(campagne)" :to="{ name: 'mj', params: { id: campagne.id } }" active-class="actif">Table du MJ</RouterLink>
         <RouterLink v-if="estProprietaire(campagne)" :to="{ name: 'membres', params: { id: campagne.id } }" active-class="actif">Membres</RouterLink>
       </template>

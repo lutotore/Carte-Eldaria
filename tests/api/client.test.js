@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { api, appeler, ErreurApi } from '../../src/api/client.js'
+import { api, appeler, envoyerPortrait, ErreurApi } from '../../src/api/client.js'
 
 function repondre(statut, corps) {
   return vi.fn(async () => new Response(corps === undefined ? null : JSON.stringify(corps), {
@@ -47,5 +47,25 @@ describe("client de l'API", () => {
     vi.stubGlobal('fetch', fetch)
     expect(await api.enregistrerEtat(1, { horloge: 4 }, 7)).toEqual({ version: 8 })
     expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ etat: { horloge: 4 }, version: 7 })
+  })
+
+  it("rattache un lieu à une île et partage un document", async () => {
+    const fetch = repondre(204)
+    vi.stubGlobal('fetch', fetch)
+    await api.changerIle(1, 9, 'aeronis')
+    await api.partager(1, 12)
+    expect(fetch.mock.calls.map(([url, o]) => [o.method, url, o.body])).toEqual([
+      ['PUT', '/api/campagnes/1/fiches/9/ile', '{"ile":"aeronis"}'],
+      ['POST', '/api/campagnes/1/fiches/12/partage', undefined],
+    ])
+  })
+
+  it('envoie un fichier tel quel et annonce les formats acceptés quand le serveur le refuse', async () => {
+    vi.stubGlobal('fetch', repondre(415, { code: 'requete_invalide' }))
+    const pdf = new Blob(['%PDF-'], { type: 'application/pdf' })
+    const erreur = await envoyerPortrait(1, 12, pdf, true).catch((e) => e)
+    expect(erreur.message).toBe('Formats acceptés : PNG, JPEG, WebP ou PDF.')
+    const portrait = await envoyerPortrait(1, 9, pdf).catch((e) => e)
+    expect(portrait.message).toBe('Formats acceptés : PNG, JPEG ou WebP.')
   })
 })

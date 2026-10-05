@@ -107,7 +107,7 @@ describe('créatures du bestiaire', () => {
       'nom', 'portrait', 'nature', 'description', 'habitat', 'ca', 'pv', 'vitesse', 'caracteristiques', 'sauvegardes', 'competences', 'defenses', 'sens', 'langues',
     ])
     expect(FACETTES_PAR_TYPE.pnj).toEqual(FACETTES_PNJ)
-    expect(TITREES_PAR_TYPE).toEqual({ pnj: ['secret'], creature: ['capacite', 'action', 'reaction', 'secret'] })
+    expect([TITREES_PAR_TYPE.pnj, TITREES_PAR_TYPE.creature]).toEqual([['secret'], ['capacite', 'action', 'reaction', 'secret']])
     expect(ESTIMABLES).toEqual(['nature', 'ca', 'pv', 'vitesse', 'caracteristiques', 'sauvegardes', 'competences', 'defenses', 'sens', 'langues'])
   })
 
@@ -148,3 +148,64 @@ describe('grille des estimations', () => {
   })
 })
 
+
+describe('lieux, documents et objets', () => {
+  it('ont leurs facettes et éléments titrés', async () => {
+    const { FACETTES_PAR_TYPE, TITREES_PAR_TYPE } = await import('../../src/domain/fiches.js')
+    expect(FACETTES_PAR_TYPE.lieu).toEqual(['nom', 'portrait', 'description', 'ambiance', 'acces'])
+    expect(FACETTES_PAR_TYPE.document).toEqual(['nom', 'fichier', 'description', 'texte'])
+    expect(FACETTES_PAR_TYPE.objet).toEqual(['nom', 'portrait', 'apparence', 'nature'])
+    expect([TITREES_PAR_TYPE.lieu, TITREES_PAR_TYPE.document, TITREES_PAR_TYPE.objet]).toEqual([['secret'], [], ['propriete', 'secret']])
+  })
+
+  it('nomment l’image selon le type de fiche', async () => {
+    const { libelleFacette } = await import('../../src/domain/fiches.js')
+    expect(libelleFacette('pnj', 'portrait')).toBe('Portrait')
+    expect(libelleFacette('lieu', 'portrait')).toBe('Illustration')
+    expect(libelleFacette('document', 'fichier')).toBe('Document (image ou PDF)')
+    expect(libelleFacette('lieu', 'acces')).toBe('Accès')
+  })
+
+  it("donnent au joueur l'île d'un lieu et le fichier d'un document, s'il les voit", () => {
+    const lieu = { id: 4, type: 'lieu', ile: 'cendrebas' }
+    expect(vueJoueur(lieu, [facette(1, 'nom', 'Le Pic Rouillé', auGroupe)], 7)).toMatchObject({ ile: 'cendrebas' })
+    const doc = { id: 5, type: 'document' }
+    const vue = vueJoueur(doc, [facette(1, 'nom', 'Lettre', a(7)), facette(2, 'fichier', 'f-1', a(7)), facette(3, 'texte', 'Ma petite étoile…', a(7))], 7)
+    expect(vue).toMatchObject({ fichier: 'f-1', facettes: [{ cle: 'texte', pourMoiSeul: true }] })
+    expect(vueJoueur(doc, [facette(1, 'nom', 'Lettre', a(7)), facette(2, 'fichier', 'f-1')], 7).fichier).toBeNull()
+  })
+
+  it("disent au joueur si un document n'est connu que de lui, en tout ou en partie, pour qu'il puisse le partager", () => {
+    const doc = { id: 5, type: 'document' }
+    expect(vueJoueur(doc, [facette(1, 'nom', 'Lettre', a(7)), facette(3, 'texte', 'Ma petite étoile…', auGroupe)], 7).aPartager).toBe(true)
+    expect(vueJoueur(doc, [facette(1, 'nom', 'Lettre', auGroupe), facette(2, 'fichier', 'f-1', a(7))], 7).aPartager).toBe(true)
+    expect(vueJoueur(doc, [facette(1, 'nom', 'Lettre', auGroupe), facette(3, 'texte', 'Ma petite étoile…', auGroupe)], 7).aPartager).toBe(false)
+    expect(vueJoueur({ id: 4, type: 'lieu' }, [facette(1, 'nom', 'Le Pic', a(7))], 7).aPartager).toBeUndefined()
+  })
+
+  it('valident les textes longs des documents', () => {
+    expect(erreurFacette('texte', 'x'.repeat(20000))).toBeNull()
+    expect(erreurFacette('texte', 'x'.repeat(20001))).not.toBeNull()
+    expect(erreurFacette('ambiance', 'Odeur de charbon.')).toBeNull()
+  })
+})
+
+describe('aDecouvert', () => {
+  const vue = (x = {}) => ({ nom: null, portrait: null, facettes: [], ...x })
+  it("signale tout ce qu'un joueur apprend : une facette, un nom, un portrait ou le fichier d'un document", async () => {
+    const { aDecouvert } = await import('../../src/domain/fiches.js')
+    expect(aDecouvert(null, vue({ nom: 'Lettre' }))).toBe(true)
+    expect(aDecouvert(vue(), vue({ facettes: [{}] }))).toBe(true)
+    expect(aDecouvert(vue(), vue({ nom: 'Lettre' }))).toBe(true)
+    expect(aDecouvert(vue({ nom: 'Lettre' }), vue({ nom: 'Lettre', portrait: 'p' }))).toBe(true)
+    expect(aDecouvert(vue({ nom: 'Lettre', fichier: null }), vue({ nom: 'Lettre', fichier: 'f' }))).toBe(true)
+    expect(aDecouvert(vue({ nom: 'Lettre', fichier: 'f' }), vue({ nom: 'Lettre', fichier: 'g' }))).toBe(true)
+  })
+
+  it('reste muet quand rien de nouveau, ou quand le joueur ne voit plus rien', async () => {
+    const { aDecouvert } = await import('../../src/domain/fiches.js')
+    expect(aDecouvert(vue({ nom: 'Lettre', facettes: [{}] }), vue({ nom: 'Lettre', facettes: [{}] }))).toBe(false)
+    expect(aDecouvert(vue({ nom: 'Lettre', facettes: [{}] }), vue({ nom: 'Lettre' }))).toBe(false)
+    expect(aDecouvert(vue({ nom: 'Lettre' }), null)).toBe(false)
+  })
+})

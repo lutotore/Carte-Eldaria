@@ -59,6 +59,16 @@ export function routesBibliotheque(api, portail) {
     return vide(reply)
   })
 
+  api.put('/api/campagnes/:id/fiches/:ficheId/ile', connecte, async (request, reply) => {
+    portail.changerIle({ ...deFiche(request), ile: corps(request).ile ?? '' })
+    return vide(reply)
+  })
+
+  api.post('/api/campagnes/:id/fiches/:ficheId/partage', connecte, async (request, reply) => {
+    portail.partager(deFiche(request))
+    return vide(reply)
+  })
+
   api.put('/api/campagnes/:id/fiches/:ficheId/notes-mj', { ...connecte, bodyLimit: 256 * 1024 }, async (request, reply) => {
     portail.modifierNotesMj({ ...deFiche(request), notesMj: corps(request).notesMj })
     return vide(reply)
@@ -79,6 +89,8 @@ export function routesBibliotheque(api, portail) {
     if (!IDENTIFIANT_IMAGE.test(imageId)) throw new ErreurMetier('introuvable', 'Image introuvable.')
     const { octets, type } = portail.lireImage({ ...contexte(request), imageId })
     // Cache du navigateur seulement (private) : un portrait ne doit pas être gardé par un intermédiaire.
+    // Un PDF se télécharge plutôt que de s'ouvrir sous la politique de sécurité stricte du site.
+    if (type === 'application/pdf') reply.header('Content-Disposition', 'attachment; filename="document.pdf"')
     return reply.header('Content-Type', type).header('Cache-Control', 'private, max-age=86400').send(octets)
   })
 

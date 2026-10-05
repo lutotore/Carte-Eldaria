@@ -214,6 +214,9 @@ docker compose exec -T api npm run -s cli -- importer-fiches 1 < /tmp/pnj.json
 rm /tmp/pnj.json
 ```
 
+Même chose pour les autres fichiers préparés (`creatures-acte-1.json`, `lieux-acte-1.json`, `documents-acte-1.json`) :
+seul le nom du fichier change. Les lieux arrivent déjà rattachés à leur île.
+
 Toutes les fiches arrivent **cachées** : les joueurs ne voient rien tant que tu ne révèles pas, facette par facette.
 Les portraits se téléversent ensuite depuis chaque fiche ; ils sont stockés dans `donnees/images/`, à côté de la base.
 

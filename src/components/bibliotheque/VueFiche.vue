@@ -1,9 +1,11 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 import { api } from '../../api/client.js'
 import { utiliserEnvoi } from '../../composables/envoi.js'
-import { LIBELLES_FACETTES, SECTIONS_TITREES, TITREES_PAR_TYPE, valeurLisible } from '../../domain/fiches.js'
+import { libelleFacette, SECTIONS_TITREES, TITREES_PAR_TYPE, valeurLisible } from '../../domain/fiches.js'
 import Portrait from './Portrait.vue'
+import { rubriqueDe } from './rubriques.js'
 
 const props = defineProps({
   campagneId: { type: String, required: true },
@@ -15,11 +17,23 @@ const emit = defineEmits(['recharger'])
 const { enCours, erreur, envoyer } = utiliserEnvoi()
 
 const creature = computed(() => props.fiche.type === 'creature')
+const estDocument = computed(() => props.fiche.type === 'document')
+const libelle = (cle) => libelleFacette(props.fiche.type, cle)
+const pdf = computed(() => props.fiche.typeFichier === 'application/pdf')
+/** Le texte d'un document se lit comme une lettre, à part. */
+const lettre = computed(() => (estDocument.value ? props.fiche.facettes.find((f) => f.cle === 'texte') ?? null : null))
 const titrees = computed(() => TITREES_PAR_TYPE[props.fiche.type])
 const cles = computed(() => new Set(props.grille.map((l) => l.cle)))
 /** Facettes affichées en texte libre : tout sauf les statistiques (grille) et les éléments titrés (sections). */
-const libres = computed(() => props.fiche.facettes.filter((f) => !titrees.value.includes(f.cle) && !cles.value.has(f.cle)))
+const libres = computed(() => props.fiche.facettes.filter((f) => !titrees.value.includes(f.cle) && !cles.value.has(f.cle) && f !== lettre.value))
 const elementsDe = (cle) => props.fiche.facettes.filter((f) => f.cle === cle)
+
+const confirmerPartage = ref(false)
+const partagerAuGroupe = () => envoyer(async () => {
+  await api.partager(props.campagneId, props.fiche.id)
+  confirmerPartage.value = false
+  emit('recharger')
+})
 
 const estimer = (cle, texte) => envoyer(async () => {
   await api.estimer(props.campagneId, props.fiche.id, cle, texte)
@@ -29,29 +43,52 @@ const estimer = (cle, texte) => envoyer(async () => {
 
 <template>
   <section class="vue papier epingle" aria-labelledby="titre-fiche">
-    <Portrait v-if="fiche.portrait" :campagne-id="campagneId" :image-id="fiche.portrait" :nom="fiche.nom ?? ''" taille="grand" class="portrait" />
+    <Portrait v-if="fiche.portrait" :campagne-id="campagneId" :image-id="fiche.portrait" :nom="fiche.nom ?? ''" :genre="fiche.type" taille="grand" class="portrait" />
     <div class="corps">
-      <h1 id="titre-fiche">{{ fiche.nom ?? (creature ? 'Créature inconnue' : 'Personnage inconnu') }}</h1>
+      <h1 id="titre-fiche">{{ fiche.nom ?? rubriqueDe(fiche.type).inconnu }}</h1>
+      <p v-if="fiche.nomIle" class="sur-la-carte">
+        Sur la carte : <RouterLink :to="{ name: 'carte', params: { id: campagneId }, query: { ile: fiche.ile } }">{{ fiche.nomIle }}</RouterLink>
+      </p>
+
+      <div v-if="estDocument && fiche.aPartager" class="partage">
+        <p class="aide">Ce document ne t’a été confié qu’à toi (en tout ou en partie). Libre à toi de le garder ou de le montrer.</p>
+        <button v-if="!confirmerPartage" type="button" class="bouton" @click="confirmerPartage = true">Partager avec le groupe…</button>
+        <span v-else class="confirmer">
+          Montrer à tout le groupe ce que tu vois de ce document ?
+          <button type="button" class="bouton bouton--plein" :disabled="enCours" @click="partagerAuGroupe">Oui, partager</button>
+          <button type="button" class="lien-bouton" @click="confirmerPartage = false">Non</button>
+        </span>
+      </div>
       <dl>
         <template v-for="f in libres" :key="f.id">
           <dt>
-            {{ LIBELLES_FACETTES[f.cle] }}
+            {{ libelle(f.cle) }}
             <span v-if="f.pourMoiSeul" class="pour-moi" title="Les autres joueurs ne le savent pas">rien que pour toi</span>
           </dt>
           <dd>{{ valeurLisible(f.cle, f.valeur) }}</dd>
         </template>
       </dl>
 
+      <template v-if="fiche.fichier">
+        <a v-if="pdf" :href="api.urlImage(campagneId, fiche.fichier)" class="bouton bouton--plein telecharger" download>Télécharger le document (PDF)</a>
+        <img v-else :src="api.urlImage(campagneId, fiche.fichier)" :alt="fiche.nom ?? 'Document'" class="image-document">
+      </template>
+
+      <blockquote v-if="lettre" class="lettre">
+        <span v-if="lettre.pourMoiSeul" class="pour-moi">rien que pour toi</span>
+        <p class="texte-lettre">{{ lettre.valeur }}</p>
+      </blockquote>
+
       <div v-if="creature" class="bloc">
         <p class="aide">Ce que le groupe ne sait pas encore, notez-le : votre estimation sera corrigée dès que la vraie valeur sera connue.</p>
         <div v-for="ligne in grille" :key="ligne.cle" class="stat" :class="{ connue: ligne.valeur !== null }">
-          <span class="nom-stat">{{ LIBELLES_FACETTES[ligne.cle] }}</span>
+          <span class="nom-stat">{{ libelle(ligne.cle) }}</span>
           <template v-if="ligne.valeur !== null">
             <span class="valeur">{{ ligne.valeur }}<span v-if="ligne.pourMoiSeul" class="pour-moi">rien que pour toi</span></span>
             <s v-if="ligne.estimation" class="ancienne" :title="`Estimé par ${ligne.estimation.auteur}`">{{ ligne.estimation.texte }}</s>
           </template>
           <label v-else class="estimation">
-            <span class="visuellement-cache">Estimation du groupe pour {{ LIBELLES_FACETTES[ligne.cle] }}</span>
+            <span class="visuellement-cache">Estimation du groupe pour {{ libelle(ligne.cle) }}</span>
             <input
               type="text" maxlength="200" :value="ligne.estimation?.texte ?? ''" placeholder="? — votre estimation" :disabled="enCours"
               @change="estimer(ligne.cle, $event.target.value)"
@@ -99,5 +136,14 @@ dd { margin: 0.1rem 0 0; white-space: pre-line; }
 .element { margin-bottom: 0.45rem; line-height: 1.45; }
 .element strong { font-style: italic; }
 .element.secret { padding-left: 0.7rem; border-left: 3px solid var(--ruban); }
+.sur-la-carte { margin: -0.4rem 0 0; font-style: italic; color: var(--encre-2); }
+.sur-la-carte a { color: var(--ruban); }
+.partage { display: flex; flex-direction: column; align-items: flex-start; gap: 0.4rem; padding: 0.6rem 0.8rem; border: 1px dashed var(--ruban); border-radius: 3px; }
+.confirmer { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.telecharger { align-self: flex-start; text-decoration: none; }
+.image-document { display: block; max-width: 100%; height: auto; border: 1px solid var(--papier-ombre); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
+.lettre { margin: 0; padding: 1.2rem 1.4rem; background: #f3e6c4; border: 1px solid var(--papier-ombre); box-shadow: inset 0 0 18px rgba(120, 90, 40, 0.18); font-family: var(--f-titre); font-size: 1.1rem; line-height: 1.6; color: var(--encre); }
+.texte-lettre { margin: 0; white-space: pre-line; }
+.lettre .pour-moi { display: block; margin: 0 0 0.4rem; font-family: var(--f-texte, inherit); }
 .visuellement-cache { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 </style>

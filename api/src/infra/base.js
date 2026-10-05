@@ -197,6 +197,24 @@ export const MIGRATIONS = [
     );
     `,
   },
+  // 6 — lieux (rattachés à une île de la carte), documents à remettre aux joueurs, objets.
+  {
+    sansClesEtrangeres: true,
+    tablesAVerifier: ['fiches', 'facettes', 'notes', 'estimations'],
+    sql: `
+    CREATE TABLE fiches_v6 (
+      id          INTEGER PRIMARY KEY,
+      campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+      type        TEXT NOT NULL CHECK (type IN ('pnj', 'creature', 'lieu', 'document', 'objet')),
+      notes_mj    TEXT NOT NULL DEFAULT '',
+      ile         TEXT,
+      cree_le     TEXT NOT NULL
+    );
+    INSERT INTO fiches_v6 (id, campagne_id, type, notes_mj, cree_le) SELECT id, campagne_id, type, notes_mj, cree_le FROM fiches;
+    DROP TABLE fiches;
+    ALTER TABLE fiches_v6 RENAME TO fiches;
+    `,
+  },
 ]
 
 export function ouvrirBase(chemin) {

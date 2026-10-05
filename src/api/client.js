@@ -69,6 +69,8 @@ export const api = {
   fiche: (campagneId, ficheId) => appeler('GET', `/api/campagnes/${campagneId}/fiches/${ficheId}`),
   creerFiche: (campagneId, nom, type = 'pnj') => appeler('POST', `/api/campagnes/${campagneId}/fiches`, { nom, type }),
   ajouterElement: (campagneId, ficheId, cle, titre, texte) => appeler('POST', `/api/campagnes/${campagneId}/fiches/${ficheId}/elements`, { cle, titre, texte }),
+  changerIle: (campagneId, ficheId, ile) => appeler('PUT', `/api/campagnes/${campagneId}/fiches/${ficheId}/ile`, { ile }),
+  partager: (campagneId, ficheId) => appeler('POST', `/api/campagnes/${campagneId}/fiches/${ficheId}/partage`),
   revelerTout: (campagneId, ficheId) => appeler('POST', `/api/campagnes/${campagneId}/fiches/${ficheId}/revelation-totale`),
   estimer: (campagneId, ficheId, cle, texte) => appeler('PUT', `/api/campagnes/${campagneId}/fiches/${ficheId}/estimations/${cle}`, { texte }),
   supprimerFiche: (campagneId, ficheId) => appeler('DELETE', `/api/campagnes/${campagneId}/fiches/${ficheId}`),
@@ -87,8 +89,11 @@ export const api = {
   supprimerCompte: (motDePasse) => appeler('POST', '/api/moi/suppression', { motDePasse }),
 }
 
-/** Le portrait part tel quel (PNG, JPEG ou WebP) : le serveur vérifie lui-même le vrai format. */
-export async function envoyerPortrait(campagneId, ficheId, fichier) {
+/**
+ * Le portrait, ou le fichier d'un document, part tel quel (PNG, JPEG, WebP, et PDF pour un document) :
+ * le serveur vérifie lui-même le vrai format.
+ */
+export async function envoyerPortrait(campagneId, ficheId, fichier, pdfAccepte = false) {
   let reponse
   try {
     reponse = await fetch(`/api/campagnes/${campagneId}/fiches/${ficheId}/portrait`, {
@@ -98,7 +103,7 @@ export async function envoyerPortrait(campagneId, ficheId, fichier) {
     throw new ErreurApi(0, 'reseau', 'Le serveur ne répond pas. Vérifie ta connexion et réessaie.')
   }
   const donnees = await reponse.json().catch(() => null)
-  if (reponse.status === 415) throw new ErreurApi(415, 'requete_invalide', 'Formats acceptés : PNG, JPEG ou WebP.')
+  if (reponse.status === 415) throw new ErreurApi(415, 'requete_invalide', pdfAccepte ? 'Formats acceptés : PNG, JPEG, WebP ou PDF.' : 'Formats acceptés : PNG, JPEG ou WebP.')
   if (!reponse.ok) throw new ErreurApi(reponse.status, donnees?.code ?? 'inconnu', donnees?.message ?? `Erreur ${reponse.status}.`)
   return donnees
 }
