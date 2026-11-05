@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CALENDRIER, DATE_DE_DEPART, depuisDate, erreurEvenement, FETES, formater, grilleDuMois, JOURS_PAR_AN, moisVoisin, occurrencesEntre,
-  estJourValide, JOUR_MAX, parJour, prochaineOccurrence, prochains, souffleDe, versDate,
+  estJourValide, JOUR_MAX, lireDate, parJour, prochaineOccurrence, prochains, souffleDe, versDate,
 } from '../../src/domain/calendrier.js'
 
 const jourDe = (annee, mois, jour) => depuisDate({ annee, mois, jour })
@@ -153,5 +153,30 @@ describe('parJour et prochains', () => {
     expect(prochains(evenements, jourDe(3207, 10, 3), 10).map((e) => [e.id, formater(e.occurrence)])).toEqual([
       [1, '29 Longue-Vue 3207 AE'], [3, '1er Primevent 3208 AE'], [2, '1er Longue-Vue 3208 AE'], [4, '1er Primevent 3210 AE'],
     ])
+  })
+})
+
+describe('lireDate : une date écrite à la main, telle que formater l’affiche', () => {
+  it('lit le jour, le mois et l’année', () => {
+    expect(lireDate('5 Longue-Vue 3207')).toBe(jourDe(3207, 10, 5))
+    expect(lireDate('1er Veillée 3207 AE')).toBe(jourDe(3207, 11, 1))
+    expect(lireDate('2e Jour Blanc 3207')).toBe(depuisDate({ annee: 3207, mois: null, jour: 2 }))
+  })
+
+  it('ne tient compte ni des majuscules, ni des accents, ni des espaces en trop', () => {
+    expect(lireDate('  10   longue-vue 3207 ')).toBe(jourDe(3207, 10, 10))
+    expect(lireDate('1 veillee 3207')).toBe(jourDe(3207, 11, 1))
+  })
+
+  it('relit tout ce que formater écrit', () => {
+    for (const jour of [0, DATE_DE_DEPART, jourDe(3207, 11, 30), depuisDate({ annee: 3208, mois: null, jour: 5 })]) {
+      expect(lireDate(formater(jour))).toBe(jour)
+    }
+  })
+
+  it('renvoie null pour une date qui n’existe pas ou mal écrite', () => {
+    for (const texte of ['31 Longue-Vue 3207', '6e Jour Blanc 3207', '5 Brumaire 3207', 'Longue-Vue 3207', '5 Longue-Vue', '', null, 12]) {
+      expect(lireDate(texte)).toBeNull()
+    }
   })
 })

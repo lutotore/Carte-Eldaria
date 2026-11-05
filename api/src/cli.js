@@ -14,6 +14,8 @@ const AIDE = `Commandes disponibles :
   exporter-etat <n° campagne>    écrit le monde de la campagne sur la sortie standard
   importer-fiches <n° campagne> [fichier]
                                  ajoute les PNJ du fichier JSON (ou de l'entrée standard) à la bibliothèque, tous cachés
+  importer-evenements <n° campagne> [fichier]
+                                 ajoute au calendrier les événements du fichier JSON (ou de l'entrée standard), tous cachés
   reinitialiser <identifiant>    affiche un lien pour choisir un nouveau mot de passe
   purger                         efface les sessions et liens périmés`
 
@@ -38,6 +40,12 @@ export async function executerCommande([commande, argument, fichier], { portail,
       const { nombre, butins } = portail.importerFiches(Number(argument), JSON.parse(texte))
       ecrire(`${nombre} fiche(s) importée(s), toutes cachées, dans la campagne n° ${argument}.`)
       if (butins) ecrire(`${butins} butin(s) importé(s), en préparation : les joueurs ne les voient pas avant que tu les ouvres.`)
+      return
+    }
+    case 'importer-evenements': {
+      const texte = fichier ? await lireFichier(fichier) : await lireEntree()
+      const { nombre } = portail.importerEvenements(Number(argument), JSON.parse(texte))
+      ecrire(`${nombre} événement(s) importé(s), tous cachés, dans le calendrier de la campagne n° ${argument}.`)
       return
     }
     case 'exporter-etat': {

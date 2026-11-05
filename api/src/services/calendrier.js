@@ -1,4 +1,4 @@
-import { DATE_DE_DEPART, erreurEvenement, estJourValide, FETES, formater, souffleDe } from '../../../src/domain/calendrier.js'
+import { DATE_DE_DEPART, erreurEvenement, estJourValide, FETES, formater, lireDate, souffleDe } from '../../../src/domain/calendrier.js'
 import { erreurs } from '../domaine/erreurs.js'
 import { estMj } from '../domaine/roles.js'
 import { transaction } from '../infra/base.js'
@@ -8,6 +8,8 @@ import { creerDepotsPlanning } from '../infra/depotsPlanning.js'
 /** Ce que chaque type d'entrée accepte comme visibilité. Les notes appartiennent aux joueurs, le reste aux MJ. */
 const VISIBILITES = { fete: ['cache', 'groupe'], evenement: ['cache', 'groupe'], chronique: ['cache', 'groupe'], note: ['privee', 'groupe'] }
 const LONGUEUR_LIBELLE = 120
+/** Ce qu'un fichier préparé peut ajouter : les entrées du MJ, pas les fêtes (déjà là) ni les notes (aux joueurs). */
+const TYPES_IMPORTABLES = ['evenement', 'chronique']
 
 /**
  * Le calendrier du monde : la date du jour en jeu, la date butoir de la catastrophe (secrète tant que le MJ le veut),
@@ -142,6 +144,28 @@ export function creerCalendrier({ db, depots, maintenant }) {
         annoncer(campagneId, null, entree)
         return { evenementId }
       })
+    },
+
+    /**
+     * Import d'une chronologie préparée (ligne de commande) : événements et chroniques du MJ, tous cachés,
+     * donc sans prévenir personne. Tout est vérifié avant d'écrire : une entrée fausse, et rien n'est ajouté.
+     */
+    importerEvenements(campagneId, donnees) {
+      exiger(depots.campagnes.parId(campagneId), erreurs.introuvable('Campagne'))
+      exiger(Array.isArray(donnees?.evenements), erreurs.requeteInvalide('Fichier invalide : liste « evenements » attendue.'))
+      const entrees = donnees.evenements.map(({ date, type = 'evenement', titre, description = '', duree = 1 }) => {
+        exiger(TYPES_IMPORTABLES.includes(type), erreurs.requeteInvalide(`${titre} : type « ${type} » impossible à importer.`))
+        try {
+          return lireEntree({ type, jour: lireDate(date), duree, annuel: false, titre, description, visibilite: 'cache' })
+        } catch (erreur) {
+          throw erreurs.requeteInvalide(`${titre ?? 'Entrée sans titre'} (${date}) : ${erreur.message}`)
+        }
+      })
+      assurer(campagneId)
+      transaction(db, () => {
+        for (const entree of entrees) cal.evenements.creer({ campagneId, ...entree, auteurId: null, le: iso() })
+      })
+      return { nombre: entrees.length }
     },
 
     modifierEvenement({ demandeurId, campagneId, evenementId, ...demande }) {

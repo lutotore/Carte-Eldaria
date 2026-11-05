@@ -131,3 +131,42 @@ describe('calendrier : notes des joueurs', () => {
     expect(titres('tom')).not.toContain('Bram')
   })
 })
+
+describe('calendrier : import d’une chronologie préparée (ligne de commande)', () => {
+  const chronologie = {
+    evenements: [
+      { date: '5 Longue-Vue 3207', titre: 'Arrivée à Cendrebas', description: 'La nuit : les somnambules.' },
+      { date: '1er Veillée 3207', titre: 'Extraction du Cœur', type: 'evenement' },
+      { date: '8 Longue-Vue 3207', titre: 'Le Persévérance accoste', duree: 2 },
+    ],
+  }
+
+  it('ajoute les événements, tous cachés aux joueurs, sans les prévenir', async () => {
+    const { portail, campagneId, ids, titres, vue } = await table()
+    const avant = portail.notifications({ demandeurId: ids.lea }).liste.length
+    expect(portail.importerEvenements(campagneId, chronologie)).toEqual({ nombre: 3 })
+    expect(titres('tom')).toEqual(expect.arrayContaining(['Arrivée à Cendrebas', 'Extraction du Cœur', 'Le Persévérance accoste']))
+    expect(titres('lea')).not.toContain('Arrivée à Cendrebas')
+    const arrivee = vue('tom').evenements.find((e) => e.titre === 'Arrivée à Cendrebas')
+    expect(arrivee).toMatchObject({ type: 'evenement', visibilite: 'cache', jour: jourDe(3207, 10, 5), description: 'La nuit : les somnambules.' })
+    expect(vue('tom').evenements.find((e) => e.titre === 'Le Persévérance accoste').duree).toBe(2)
+    expect(portail.notifications({ demandeurId: ids.lea }).liste).toHaveLength(avant)
+  })
+
+  it('accepte des entrées de chronique, mais jamais de note de joueur', async () => {
+    const { portail, campagneId, vue } = await table()
+    portail.importerEvenements(campagneId, { evenements: [{ date: '5 Longue-Vue 3207', titre: 'Séance 2', type: 'chronique' }] })
+    expect(vue('tom').evenements.find((e) => e.titre === 'Séance 2')).toMatchObject({ type: 'chronique', visibilite: 'cache' })
+    expect(() => portail.importerEvenements(campagneId, { evenements: [{ date: '5 Longue-Vue 3207', titre: 'x', type: 'note' }] }))
+      .toThrow(refus('requete_invalide'))
+  })
+
+  it('n’écrit rien si une seule entrée est fausse, et dit laquelle', async () => {
+    const { portail, campagneId, titres } = await table()
+    const fichier = { evenements: [chronologie.evenements[0], { date: '31 Longue-Vue 3207', titre: 'Jour impossible' }] }
+    expect(() => portail.importerEvenements(campagneId, fichier)).toThrow(/Jour impossible/)
+    expect(titres('tom')).not.toContain('Arrivée à Cendrebas')
+    expect(() => portail.importerEvenements(campagneId, { rien: [] })).toThrow(refus('requete_invalide'))
+    expect(() => portail.importerEvenements(999, chronologie)).toThrow(refus('introuvable'))
+  })
+})

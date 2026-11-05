@@ -66,6 +66,26 @@ export function depuisDate({ annee, mois, jour }) {
 }
 
 
+/** Pour comparer des noms écrits à la main : sans majuscules ni accents. */
+const sansAccents = (texte) => texte.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/**
+ * Le jour absolu d'une date écrite comme formater l'affiche (« 5 Longue-Vue 3207 », « 1er Veillée 3207 AE »,
+ * « 2e Jour Blanc 3207 »), ou null si elle est mal écrite ou n'existe pas.
+ */
+export function lireDate(texte) {
+  if (typeof texte !== 'string') return null
+  const morceaux = texte.trim().match(/^(\d+)(?:er|e)?\s+(.+?)\s+(\d+)(?:\s+ae)?$/i)
+  if (!morceaux) return null
+  const [, jour, nomDuMoisEcrit, annee] = morceaux
+  const nom = sansAccents(nomDuMoisEcrit.replace(/\s+/g, ' '))
+  const mois = nom === sansAccents(CALENDRIER.intercalaires.nom)
+    ? null
+    : CALENDRIER.mois.findIndex((m) => sansAccents(m.nom) === nom)
+  if (mois === -1) return null
+  return depuisDate({ annee: Number(annee), mois, jour: Number(jour) })
+}
+
 /** « 12 Montebrume 3207 AE », « 1er Primevent 3207 AE », « 2e Jour Blanc 3207 AE ». */
 export function formater(jourAbsolu, { avecAnnee = true } = {}) {
   const { annee, mois, jour } = versDate(jourAbsolu)

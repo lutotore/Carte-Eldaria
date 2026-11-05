@@ -223,6 +223,34 @@ c'est ce que les joueurs verront avant toute identification.
 Toutes les fiches arrivent **cachées** : les joueurs ne voient rien tant que tu ne révèles pas, facette par facette.
 Les portraits se téléversent ensuite depuis chaque fiche ; ils sont stockés dans `donnees/images/`, à côté de la base.
 
+## Importer une chronologie (calendrier)
+
+Les événements d'un arc (les jours qui avancent, les échéances) se préparent dans un fichier JSON rangé dans `mj/`,
+par exemple `arc-2-chronologie.json` :
+
+```json
+{ "evenements": [
+  { "date": "5 Longue-Vue 3207", "titre": "Arrivée à Cendrebas", "description": "La nuit : les somnambules." },
+  { "date": "1er Veillée 3207", "titre": "Extraction du Cœur", "type": "evenement", "duree": 1 }
+] }
+```
+
+La date s'écrit comme le portail l'affiche. `type` vaut `evenement` (par défaut) ou `chronique` ; `duree` est en jours (1 par défaut).
+Tout arrive **caché** : les joueurs ne voient rien, et ne sont pas prévenus, tant que tu ne rends pas l'événement visible.
+Si une seule entrée est fausse, rien n'est importé et le message dit laquelle.
+
+```powershell
+scp mj/arc-2-chronologie.json eldaria:/tmp/chrono.json
+```
+
+```bash
+cd /opt/eldaria
+docker compose exec -T api npm run -s cli -- importer-evenements 1 < /tmp/chrono.json
+rm /tmp/chrono.json
+```
+
+N'importe le même fichier qu'une fois : un second import ajouterait les événements en double.
+
 ## Commandes utiles
 
 | Besoin | Commande (dans `/opt/eldaria`) |

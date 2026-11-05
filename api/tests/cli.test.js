@@ -67,6 +67,15 @@ describe('ligne de commande du serveur', () => {
     expect(portail.bibliotheque({ demandeurId: tomId, campagneId }).fiches.map((f) => f.nom)).toEqual(['Mila'])
   })
 
+  it('importe une chronologie depuis un fichier, toute cachée', async () => {
+    const { portail } = portailDeTest()
+    const { campagneId, tomId } = await campagneAvecProprietaire(portail)
+    const fichier = JSON.stringify({ evenements: [{ date: '5 Longue-Vue 3207', titre: 'Arrivée à Cendrebas' }] })
+    const sortie = await lancer(portail, ['importer-evenements', String(campagneId), 'chrono.json'], '', { 'chrono.json': fichier })
+    expect(sortie).toMatch(/1 événement\(s\) importé\(s\), tous cachés/)
+    expect(portail.calendrier({ demandeurId: tomId, campagneId }).evenements.map((e) => e.titre)).toContain('Arrivée à Cendrebas')
+  })
+
   it('refuse une commande inconnue en affichant l’aide', async () => {
     const { portail } = portailDeTest()
     await expect(lancer(portail, ['danser'])).rejects.toThrow(/Commandes disponibles/)
