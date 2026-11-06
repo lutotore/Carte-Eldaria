@@ -45,6 +45,10 @@ describe('fiche vierge', () => {
 })
 
 describe('erreurChamps', () => {
+  it('ne laisse pas écrire les règles suivies à la main : elles ne changent que par la montée de niveau', () => {
+    expect(erreurChamps({ regles: { classes: [] } })).toMatch(/regles/)
+  })
+
   it('accepte une modification partielle', () => {
     expect(erreurChamps({ classe: 'Roublarde', niveau: 3 })).toBeNull()
     expect(erreurChamps({ competences: { perception: 1, discretion: 2 } })).toBeNull()

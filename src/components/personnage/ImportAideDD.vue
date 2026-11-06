@@ -22,7 +22,18 @@ const lecture = ref('')
 const import_ = ref(null)
 
 const ficheActuelle = computed(() => props.personnage?.fiche ?? ficheVierge(''))
-const differences = computed(() => (import_.value ? differencesImport(ficheActuelle.value, import_.value.champs) : []))
+/** Sur une fiche qui suit les règles, la montée de niveau garde la main sur la classe, le niveau et les dés de vie. */
+const TENUS_PAR_LES_REGLES = ['classe', 'niveau', 'desDeVie']
+const champsImportes = computed(() => {
+  if (!import_.value) return {}
+  if (!ficheActuelle.value.regles) return import_.value.champs
+  return Object.fromEntries(Object.entries(import_.value.champs).filter(([cle]) => !TENUS_PAR_LES_REGLES.includes(cle)))
+})
+const avertissements = computed(() => [
+  ...(import_.value?.avertissements ?? []),
+  ...(ficheActuelle.value.regles ? ['Ta fiche suit les règles du site : la classe, le niveau et les dés de vie ne sont pas repris.'] : []),
+])
+const differences = computed(() => (import_.value ? differencesImport(ficheActuelle.value, champsImportes.value) : []))
 
 async function choisir(evenement) {
   lecture.value = ''
@@ -48,7 +59,7 @@ const annuler = () => {
 }
 
 const confirmer = () => envoyer(async () => {
-  const { champs } = import_.value
+  const champs = champsImportes.value
   let personnageId = props.personnage?.id
   if (!personnageId) ({ personnageId } = await api.creerPersonnage(props.campagneId, champs.nom))
   await api.modifierPersonnage(props.campagneId, personnageId, champs)
@@ -83,7 +94,7 @@ const confirmer = () => envoyer(async () => {
           </tbody>
         </table>
         <ul class="avertissements">
-          <li v-for="a in import_.avertissements" :key="a">{{ a }}</li>
+          <li v-for="a in avertissements" :key="a">{{ a }}</li>
         </ul>
         <div class="actions">
           <button type="button" class="bouton bouton--plein" :disabled="enCours || differences.length === 0" @click="confirmer">

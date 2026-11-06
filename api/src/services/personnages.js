@@ -2,6 +2,9 @@ import {
   additionner, erreurButin, erreurMarque, erreurObjetButin, erreurPrisePieces, STATUTS_BUTIN,
 } from '../../../src/domain/butins.js'
 import { calculs, erreurBourse, erreurChamps, erreurLigne, ficheVierge, PIECES } from '../../../src/domain/personnage.js'
+import { creerCatalogue } from '../../../src/domain/regles/catalogue.js'
+import { annulerDerniereMontee, appliquerMontee, erreurMontee, erreurRattachement, optionsDeMontee, rattacher } from '../../../src/domain/regles/montee.js'
+import { ELEMENTS_SRD } from '../../../src/domain/regles/srd.js'
 import { erreurs, ErreurMetier } from '../domaine/erreurs.js'
 import { estMj } from '../domaine/roles.js'
 import { transaction } from '../infra/base.js'
@@ -10,6 +13,8 @@ import { creerDepotsPlanning } from '../infra/depotsPlanning.js'
 
 const bourseModifiee = () => new ErreurMetier('conflit', 'La bourse a changé entre-temps (une prise dans un butin ?). Recharge la fiche et recommence.')
 const pourNotes = (texte) => texte.slice(0, 1000)
+/** Ce que la montée de niveau tient à jour : on ne le change pas à la main sur une fiche qui suit les règles. */
+const CHAMPS_DES_REGLES = ['niveau', 'classe', 'desDeVie']
 
 /** « 20 po, 5 pa » : les pièces non nulles, de la plus précieuse à la plus modeste. */
 const decrirePieces = (pieces) => PIECES.filter((p) => pieces[p.cle] > 0).map((p) => `${pieces[p.cle]} ${p.cle}`).join(', ')
@@ -20,7 +25,7 @@ const bourseSeule = (pieces) => Object.fromEntries(PIECES.map((p) => [p.cle, pie
  * et butins de rencontre où les joueurs se servent.
  * Une fiche ne se lit que par son joueur et par les MJ ; chaque méthode vérifie elle-même les droits.
  */
-export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
+export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles = creerCatalogue(ELEMENTS_SRD) }) {
   const persos = creerDepotsPersonnages(db)
   const notifications = creerDepotsPlanning(db).notifications
   const iso = () => maintenant().toISOString()
@@ -30,6 +35,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
   }
   const roleDans = (utilisateurId, campagneId) => depots.participations.role(utilisateurId, campagneId)
   const joueursDe = (campagneId) => depots.participations.membresDe(campagneId).filter((m) => !estMj(m.role))
+  const mjDe = (campagneId) => depots.participations.membresDe(campagneId).filter((m) => estMj(m.role))
 
   function exigerMembre(demandeurId, campagneId) {
     const role = roleDans(demandeurId, campagneId)
@@ -57,6 +63,23 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
 
   function exigerSansErreur(probleme) {
     exiger(!probleme, erreurs.requeteInvalide(probleme))
+  }
+
+  /** La fiche telle qu'on la lit : une fiche créée avant l'ajout d'un champ le reçoit avec sa valeur de départ. */
+  const ficheComplete = (personnage) => ({ ...ficheVierge(personnage.fiche.nom), regles: null, ...personnage.fiche })
+
+  function ecrireFiche(personnage, fiche) {
+    const { regles, ...reste } = fiche
+    persos.personnages.ecrireFiche(personnage.id, regles ? fiche : reste, iso())
+  }
+
+  function prevenirLesMj(personnage, fiche) {
+    for (const mj of mjDe(personnage.campagneId)) {
+      notifications.creer({
+        utilisateurId: mj.id, campagneId: personnage.campagneId, texte: `${fiche.nom} passe au niveau ${fiche.niveau} : ${fiche.classe}.`,
+        lien: `/campagne/${personnage.campagneId}/personnages/${personnage.id}`, categorie: 'personnage', creeLe: iso(),
+      })
+    }
   }
 
   const ligneLue = ({ libelle, quantite, notes = '' }) => ({ libelle: String(libelle ?? '').trim(), quantite, notes })
@@ -154,8 +177,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
     personnage({ demandeurId, campagneId, personnageId }) {
       const { personnage, role } = exigerAcces(demandeurId, campagneId, personnageId)
       const pourMj = estMj(role)
-      // Une fiche créée avant l'ajout d'un champ le reçoit avec sa valeur de départ.
-      const fiche = { ...ficheVierge(personnage.fiche.nom), ...personnage.fiche }
+      const fiche = ficheComplete(personnage)
       return {
         id: personnage.id,
         joueur: personnage.joueur,
@@ -172,8 +194,57 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque }) {
     modifierPersonnage({ demandeurId, campagneId, personnageId, champs }) {
       const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
       exigerSansErreur(erreurChamps(champs))
+      const regle = personnage.fiche.regles && CHAMPS_DES_REGLES.find((cle) => Object.hasOwn(champs, cle))
+      exiger(!regle, erreurs.requeteInvalide('Ta fiche suit les règles du site : le niveau, la classe et les dés de vie changent par la montée de niveau.'))
       const propres = Object.fromEntries(Object.entries(champs).map(([cle, valeur]) => [cle, cle === 'nom' ? valeur.trim() : valeur]))
       persos.personnages.ecrireFiche(personnage.id, { ...personnage.fiche, ...propres }, iso())
+    },
+
+    // --- Montée de niveau : le moteur de règles décide, la fiche n'est écrite qu'après ---
+    /** Ce que la fiche peut faire : se rattacher aux règles, ou monter d'un niveau (et annuler la dernière montée). */
+    optionsMontee({ demandeurId, campagneId, personnageId }) {
+      const fiche = ficheComplete(exigerAcces(demandeurId, campagneId, personnageId).personnage)
+      if (!fiche.regles) {
+        const classes = regles.classes().map((c) => ({
+          id: c.id, nom: c.nom, niveauSousClasse: c.niveauSousClasse,
+          sousClasses: regles.sousClassesDe(c.id).map((s) => ({ id: s.id, nom: s.nom })),
+        }))
+        return { rattachement: { niveau: fiche.niveau, classes } }
+      }
+      const derniere = fiche.regles.montees.at(-1)
+      return { options: optionsDeMontee(fiche, regles), annulable: derniere ? { niveau: derniere.niveau, classe: derniere.classe } : null }
+    },
+
+    rattacherAuxRegles({ demandeurId, campagneId, personnageId, classe, sousClasse = null }) {
+      const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
+      const fiche = ficheComplete(personnage)
+      const demande = { classe, sousClasse }
+      exigerSansErreur(erreurRattachement(fiche, demande, regles))
+      ecrireFiche(personnage, rattacher(fiche, demande, regles))
+    },
+
+    monterDeNiveau({ demandeurId, campagneId, personnageId, demande }) {
+      const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
+      const fiche = ficheComplete(personnage)
+      exigerSansErreur(erreurMontee(fiche, demande, regles))
+      const apres = appliquerMontee(fiche, demande, regles)
+      transaction(db, () => {
+        ecrireFiche(personnage, apres)
+        prevenirLesMj(personnage, apres)
+      })
+    },
+
+    annulerMontee({ demandeurId, campagneId, personnageId }) {
+      const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
+      const fiche = ficheComplete(personnage)
+      exiger(fiche.regles?.montees.length, erreurs.requeteInvalide('Aucune montée de niveau faite sur le site à annuler.'))
+      ecrireFiche(personnage, annulerDerniereMontee(fiche, regles))
+    },
+
+    /** La fiche redevient libre : on peut à nouveau tout y écrire à la main. */
+    detacherDesRegles({ demandeurId, campagneId, personnageId }) {
+      const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
+      ecrireFiche(personnage, { ...personnage.fiche, regles: null })
     },
 
     /** Réservé aux MJ : un joueur ne doit pas pouvoir effacer ses Marques du Rêve en recréant sa fiche. */

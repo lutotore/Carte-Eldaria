@@ -7,6 +7,7 @@ import FichePersonnage from '../components/personnage/FichePersonnage.vue'
 import ImportAideDD from '../components/personnage/ImportAideDD.vue'
 import InventairePersonnage from '../components/personnage/InventairePersonnage.vue'
 import MarquesDuReve from '../components/personnage/MarquesDuReve.vue'
+import MonteeDeNiveau from '../components/personnage/MonteeDeNiveau.vue'
 import { utiliserEnvoi } from '../composables/envoi.js'
 
 /**
@@ -82,6 +83,7 @@ const supprimer = () => envoyer(async () => {
     <template v-else-if="personnage">
       <p v-if="personnage.estMj" class="bandeau">Fiche de <strong>{{ personnage.joueur }}</strong> — tu peux tout modifier ; le joueur voit tes changements.</p>
       <ImportAideDD :campagne-id="id" :personnage="personnage" @importe="apresImport" />
+      <MonteeDeNiveau :campagne-id="id" :personnage="personnage" @recharger="recharger" />
       <FichePersonnage :campagne-id="id" :personnage="personnage" @recharger="recharger" />
       <div class="annexes">
         <div class="pile">

@@ -43,6 +43,24 @@ describe('fiches de personnage par HTTP', () => {
   })
 })
 
+describe('montée de niveau par HTTP', () => {
+  it('le joueur rattache sa fiche, monte d’un niveau puis annule ; une montée invalide renvoie 400', async () => {
+    const { appel, cookieLea, cookieMax } = await avecJoueurs()
+    const { personnageId } = (await appel(cookieLea, 'POST', '/personnages', { nom: 'Isaure' })).json()
+    const chemin = `/personnages/${personnageId}`
+    expect((await appel(cookieLea, 'GET', `${chemin}/regles`)).json().rattachement.niveau).toBe(1)
+    expect((await appel(cookieLea, 'PUT', `${chemin}/regles`, { classe: 'roublard' })).statusCode).toBe(204)
+    expect((await appel(cookieLea, 'GET', `${chemin}/regles`)).json().options).toMatchObject({ niveauTotal: 2, aptitudes: ['Ruse'] })
+    expect((await appel(cookieLea, 'POST', `${chemin}/montees`, { classe: 'roublard', sousClasse: 'voleur' })).statusCode).toBe(400)
+    expect((await appel(cookieMax, 'POST', `${chemin}/montees`, { classe: 'roublard' })).statusCode).toBe(404)
+    expect((await appel(cookieLea, 'POST', `${chemin}/montees`, { classe: 'roublard' })).statusCode).toBe(204)
+    expect((await appel(cookieLea, 'GET', chemin)).json().fiche).toMatchObject({ niveau: 2, classe: 'Roublard 2' })
+    expect((await appel(cookieLea, 'DELETE', `${chemin}/montees/derniere`)).statusCode).toBe(204)
+    expect((await appel(cookieLea, 'DELETE', `${chemin}/regles`)).statusCode).toBe(204)
+    expect((await appel(cookieLea, 'GET', chemin)).json().fiche).toMatchObject({ niveau: 1, regles: null })
+  })
+})
+
 describe('butins par HTTP', () => {
   it('le MJ prépare et ouvre, le joueur prend un objet et des pièces', async () => {
     const { appel, cookieTom, cookieLea } = await avecJoueurs()

@@ -45,6 +45,27 @@ export function routesPersonnages(api, portail) {
     return sansContenu(reply)
   })
 
+  // --- Règles et montée de niveau ---
+  api.get('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request) => portail.optionsMontee(perso(request)))
+  api.put('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request, reply) => {
+    const { classe, sousClasse } = corps(request)
+    portail.rattacherAuxRegles({ ...perso(request), classe, sousClasse })
+    return sansContenu(reply)
+  })
+  api.delete('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request, reply) => {
+    portail.detacherDesRegles(perso(request))
+    return sansContenu(reply)
+  })
+  api.post('/api/campagnes/:id/personnages/:personnageId/montees', connecte, async (request, reply) => {
+    const { classe, sousClasse, amelioration, choix } = corps(request)
+    portail.monterDeNiveau({ ...perso(request), demande: { classe, sousClasse, amelioration, choix } })
+    return sansContenu(reply)
+  })
+  api.delete('/api/campagnes/:id/personnages/:personnageId/montees/derniere', connecte, async (request, reply) => {
+    portail.annulerMontee(perso(request))
+    return sansContenu(reply)
+  })
+
   const marque = (request) => {
     const { titre, don, prix } = corps(request)
     return { titre, don, prix }

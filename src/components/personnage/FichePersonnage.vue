@@ -23,6 +23,9 @@ watch(() => props.personnage, (p) => {
   else fiche.value = copie(p.fiche)
 })
 const c = computed(() => calculs(fiche.value))
+/** Sur une fiche qui suit les règles, la montée de niveau tient à jour la classe, le niveau et les dés de vie. */
+const suitLesRegles = computed(() => Boolean(fiche.value.regles))
+const VERROU = 'Tenu à jour par la montée de niveau.'
 const erreur = ref('')
 const enregistre = ref('')
 const enCours = ref(0)
@@ -127,9 +130,10 @@ const MAITRISES = [{ valeur: 0, nom: '—' }, { valeur: 1, nom: 'Maîtrise' }, {
       </label>
       <div class="grille-identite">
         <label v-for="champ in IDENTITE" :key="champ.cle" class="champ">{{ champ.libelle }}
-          <input :value="fiche[champ.cle]" maxlength="120" @change="texte(champ.cle, $event)">
+          <input :value="fiche[champ.cle]" maxlength="120" :readonly="champ.cle === 'classe' && suitLesRegles"
+            :title="champ.cle === 'classe' && suitLesRegles ? VERROU : null" @change="texte(champ.cle, $event)">
         </label>
-        <label class="champ court">Niveau <input type="number" min="1" max="20" :value="fiche.niveau" @change="nombre('niveau', $event)"></label>
+        <label class="champ court">Niveau <input type="number" min="1" max="20" :value="fiche.niveau" :readonly="suitLesRegles" :title="suitLesRegles ? VERROU : null" @change="nombre('niveau', $event)"></label>
         <label class="champ court">Points d’expérience <input type="number" min="0" :value="fiche.xp" @change="nombre('xp', $event)"></label>
       </div>
       <p class="statut" aria-live="polite">
@@ -185,7 +189,7 @@ const MAITRISES = [{ valeur: 0, nom: '—' }, { valeur: 1, nom: 'Maîtrise' }, {
           <label class="champ">PV temporaires <input type="number" min="0" :value="fiche.pvTemporaires" @change="nombre('pvTemporaires', $event)"></label>
         </div>
         <div class="duo">
-          <label class="champ">Dés de vie <input :value="fiche.desDeVie" maxlength="60" placeholder="ex. 3d8" @change="texte('desDeVie', $event)"></label>
+          <label class="champ">Dés de vie <input :value="fiche.desDeVie" maxlength="60" placeholder="ex. 3d8" :readonly="suitLesRegles" :title="suitLesRegles ? VERROU : null" @change="texte('desDeVie', $event)"></label>
           <fieldset class="mort">
             <legend>Jets contre la mort</legend>
             <span>Succès
