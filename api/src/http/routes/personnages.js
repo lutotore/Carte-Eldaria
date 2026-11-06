@@ -58,8 +58,8 @@ export function routesPersonnages(api, portail) {
     return sansContenu(reply)
   })
   api.post('/api/campagnes/:id/personnages/:personnageId/montees', connecte, async (request, reply) => {
-    const { classe, sousClasse, amelioration, choix } = corps(request)
-    portail.monterDeNiveau({ ...perso(request), demande: { classe, sousClasse, amelioration, choix } })
+    const { classe, sousClasse, amelioration, choix, optionnelles } = corps(request)
+    portail.monterDeNiveau({ ...perso(request), demande: { classe, sousClasse, amelioration, choix, optionnelles } })
     return sansContenu(reply)
   })
   api.delete('/api/campagnes/:id/personnages/:personnageId/montees/derniere', connecte, async (request, reply) => {

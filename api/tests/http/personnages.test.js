@@ -61,6 +61,27 @@ describe('montée de niveau par HTTP', () => {
   })
 })
 
+describe('aptitudes optionnelles par HTTP', () => {
+  it('transmet les aptitudes optionnelles choisies au moteur de règles', async () => {
+    const outils = await avecJoueurs()
+    const { appel, cookieLea, portail } = outils
+    portail.importerRegles({
+      livre: 'Tasha',
+      elements: [{
+        type: 'option-classe', id: 'ennemi-designe', classe: 'rodeur', niveau: 1, nom: 'Ennemi désigné', source: 'Tasha',
+        remplace: { aptitudes: ['Ennemi juré'], listes: ['ennemis-jures'] },
+      }],
+    })
+    const { personnageId } = (await appel(cookieLea, 'POST', '/personnages', { nom: 'Isaure' })).json()
+    const chemin = `/personnages/${personnageId}`
+    await appel(cookieLea, 'PUT', chemin, { champs: { caracteristiques: { for: 16, dex: 14, con: 14, int: 10, sag: 14, cha: 10 } } })
+    await appel(cookieLea, 'PUT', `${chemin}/regles`, { classe: 'guerrier' })
+    const demande = { classe: 'rodeur', optionnelles: ['ennemi-designe'], choix: { competences: ['survie'], 'terrains-favoris': ['foret'] } }
+    expect((await appel(cookieLea, 'POST', `${chemin}/montees`, demande)).statusCode).toBe(204)
+    expect((await appel(cookieLea, 'GET', chemin)).json().fiche.regles.choix['options-classe']).toEqual(['ennemi-designe'])
+  })
+})
+
 describe('butins par HTTP', () => {
   it('le MJ prépare et ouvre, le joueur prend un objet et des pièces', async () => {
     const { appel, cookieTom, cookieLea } = await avecJoueurs()

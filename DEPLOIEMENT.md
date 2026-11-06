@@ -268,6 +268,10 @@ docker compose exec -T api npm run -s cli -- livres-regles
 rm /tmp/regles.json
 ```
 
+Les fichiers prêts dans `mj/` : `regles-phb.json`, `regles-xanathar.json`, `regles-tasha.json`.
+Importe-les **dans cet ordre** : Xanathar et Tasha complètent des listes du Livre du joueur (manœuvres, manifestations…),
+et l'import refuse un livre dont une liste de départ manque.
+
 Réimporter un livre **remplace** tous ses éléments : tu peux corriger le fichier et le renvoyer autant de fois que tu veux.
 Le fichier est vérifié en entier avant d'écrire quoi que ce soit (sous-classe d'une classe inconnue, liste d'options manquante…).
 

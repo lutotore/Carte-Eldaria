@@ -149,7 +149,7 @@ function decrireChoix(choix, fiche, niveauClasse, catalogue) {
   const deja = (liste.groupe ? catalogue.listesDuGroupe(liste.groupe) : [liste]).flatMap((l) => regles.choix[l.id] ?? [])
   const choisis = tousLesChoix(regles)
   const options = liste.options
-    .filter((option) => !deja.includes(option.id) && optionPermise(option, niveauClasse, choisis))
+    .filter((option) => (option.repetable || !deja.includes(option.id)) && optionPermise(option, niveauClasse, choisis))
     .map(({ id, nom }) => ({ id, nom }))
   return { cle: liste.id, type: 'liste', libelle: liste.nom, nombre, options }
 }
@@ -183,6 +183,21 @@ function lierExpertise(choix) {
 
 const bonusPvDesDons = (ids, catalogue) => somme(ids.map((id) => catalogue.don(id)?.pvParNiveau ?? 0))
 
+// --- Aptitudes optionnelles de classe (Tasha) : elles s'ajoutent, ou remplacent une aptitude et ses choix ---
+
+const OPTIONS_CLASSE = 'options-classe'
+
+/** Ce que remplacent les aptitudes optionnelles prises : noms d'aptitudes (et leurs versions améliorées), listes de choix. */
+function remplacements(ids, catalogue, classeId) {
+  const prises = catalogue.optionsDeClasse(classeId).filter((o) => ids.includes(o.id))
+  return {
+    aptitudes: prises.flatMap((o) => o.remplace?.aptitudes ?? []),
+    listes: prises.flatMap((o) => o.remplace?.listes ?? []),
+  }
+}
+
+const sansRemplacees = (aptitudes, remplacees) => aptitudes.filter((a) => !remplacees.some((r) => a === r || a.startsWith(`${r} `)))
+
 /**
  * Ce que le joueur gagne et doit choisir en prenant un niveau dans cette classe.
  * `{ possible: false, raison }` quand il n'y a pas de montée à faire.
@@ -203,6 +218,13 @@ export function optionsDeMontee(fiche, catalogue, classeId = fiche.regles?.class
   const sousClasse = suivie?.sousClasse ? catalogue.sousClasse(classeId, suivie.sousClasse) : null
   const choix = (definitions) => definitions.map((c) => decrireChoix(c, fiche, niveauClasse, catalogue))
   const moyenne = moyenneDuDe(classe.de)
+  const remplacees = remplacements(regles.choix[OPTIONS_CLASSE] ?? [], catalogue, classeId)
+  const optionnelles = catalogue.optionsDeClasse(classeId)
+    .filter((o) => o.niveau === niveauClasse && !(regles.choix[OPTIONS_CLASSE] ?? []).includes(o.id))
+    .map((o) => ({
+      id: o.id, nom: o.nom, source: o.source, page: o.page ?? null, resume: o.resume ?? '',
+      remplace: { aptitudes: o.remplace?.aptitudes ?? [], listes: o.remplace?.listes ?? [] }, choix: choix(o.choix ?? []),
+    }))
   const bonus = bonusPvDesDons(regles.choix.dons ?? [], catalogue) + (sousClasse?.pvParNiveau ?? 0)
 
   return {
@@ -213,7 +235,7 @@ export function optionsDeMontee(fiche, catalogue, classeId = fiche.regles?.class
     pv: { de: classe.de, moyenne, gain: Math.max(1, moyenne + modificateur(fiche.caracteristiques.con)) + bonus },
     aptitudes: [
       ...(entree?.maitrises ? [`Maîtrises du multiclassage : ${entree.maitrises}`] : []),
-      ...auNiveau(classe.aptitudes, niveauClasse), ...auNiveau(sousClasse?.aptitudes, niveauClasse),
+      ...sansRemplacees([...auNiveau(classe.aptitudes, niveauClasse), ...auNiveau(sousClasse?.aptitudes, niveauClasse)], remplacees.aptitudes),
     ],
     sousClasse: niveauClasse === classe.niveauSousClasse
       ? catalogue.sousClassesDe(classeId).map((s) => ({
@@ -223,7 +245,9 @@ export function optionsDeMontee(fiche, catalogue, classeId = fiche.regles?.class
     amelioration: classe.ameliorations.includes(niveauClasse)
       ? { caracs: { ...fiche.caracteristiques }, dons: catalogue.dons().map((d) => decrireDon(d, fiche, choix)) }
       : null,
-    choix: lierExpertise(choix([...(entree?.choix ?? []), ...auNiveau(classe.choix, niveauClasse), ...auNiveau(sousClasse?.choix, niveauClasse)])),
+    choix: lierExpertise(choix([...(entree?.choix ?? []), ...auNiveau(classe.choix, niveauClasse), ...auNiveau(sousClasse?.choix, niveauClasse)])
+      .filter((c) => !remplacees.listes.includes(c.cle))),
+    optionnelles,
     aVenir: (classe.incantation ?? sousClasse?.incantation) ? ['Sorts appris et préparés : note-les sur la fiche, le site ne gère pas encore les sorts.'] : [],
   }
 }
@@ -263,14 +287,22 @@ function erreurAmelioration(amelioration, options, fiche, catalogue) {
   return amelioration.don != null ? erreurDon(amelioration, options, fiche, catalogue) : erreurCaracs(amelioration.caracs, fiche)
 }
 
+function erreurOptionnelles(optionnelles, options) {
+  if (!Array.isArray(optionnelles) || new Set(optionnelles).size !== optionnelles.length) return 'Aptitudes optionnelles invalides.'
+  const inconnue = optionnelles.find((id) => !options.optionnelles.some((o) => o.id === id))
+  return inconnue ? `Aptitude optionnelle non disponible à ce niveau : ${inconnue}.` : null
+}
+
 function erreurSousClasse(sousClasse, options) {
   if (!options.sousClasse) return sousClasse == null ? null : 'Pas de sous-classe à choisir à ce niveau.'
   return options.sousClasse.some((s) => s.id === sousClasse) ? null : 'Choisis une sous-classe.'
 }
 
 /** Les choix à faire : ceux de la classe et de la sous-classe actuelle, plus ceux de la sous-classe choisie maintenant. */
-const choixAttendus = (options, { sousClasse = null, amelioration = null }) => lierExpertise([
-  ...options.choix,
+const choixAttendus = (options, { sousClasse = null, amelioration = null, optionnelles = [] }) => lierExpertise([
+  ...options.choix.filter((c) => !options.optionnelles
+    .some((o) => optionnelles.includes(o.id) && o.remplace.listes.includes(c.cle))),
+  ...options.optionnelles.filter((o) => optionnelles.includes(o.id)).flatMap((o) => o.choix),
   ...(options.sousClasse?.find((s) => s.id === sousClasse)?.choix ?? []),
   ...(options.amelioration?.dons.find((d) => d.id === amelioration?.don)?.choix ?? []),
 ])
@@ -295,8 +327,9 @@ export function erreurMontee(fiche, demande, catalogue) {
   if (!estObjet(demande)) return 'Demande de montée de niveau invalide.'
   const options = optionsDeMontee(fiche, catalogue, demande.classe)
   if (!options.possible) return options.raison
-  const { sousClasse = null, amelioration = null, choix = {} } = demande
-  return erreurSousClasse(sousClasse, options)
+  const { sousClasse = null, amelioration = null, choix = {}, optionnelles = [] } = demande
+  return erreurOptionnelles(optionnelles, options)
+    ?? erreurSousClasse(sousClasse, options)
     ?? erreurAmelioration(amelioration, options, fiche, catalogue)
     ?? erreurChoix(choix, choixAttendus(options, demande))
 }
@@ -366,7 +399,8 @@ export function appliquerMontee(fiche, demande, catalogue) {
   const amelioration = demande.amelioration ?? null
   const don = amelioration?.don ? catalogue.don(amelioration.don) : null
   const caracs = amelioration?.caracs ?? {}
-  const choix = demande.choix ?? {}
+  const optionnelles = demande.optionnelles ?? []
+  const choix = { ...(demande.choix ?? {}), ...(optionnelles.length ? { [OPTIONS_CLASSE]: optionnelles } : {}) }
 
   const attendus = choixAttendus(optionsDeMontee(fiche, catalogue, classe.id), demande)
   const caracteristiques = ajouterCaracs(fiche.caracteristiques, caracs)

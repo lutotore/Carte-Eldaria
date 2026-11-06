@@ -32,6 +32,7 @@ const points = ref({})
 const don = ref('')
 const caracDuDon = ref('')
 const choix = ref({})
+const optionnelles = ref([])
 
 const options = computed(() => etat.value?.options ?? null)
 const rattachement = computed(() => etat.value?.rattachement ?? null)
@@ -41,8 +42,15 @@ const totalLignes = computed(() => lignes.value.reduce((t, l) => t + (Number(l.n
 const ligneVide = (niveau) => ({ classe: '', niveau, sousClasse: '' })
 const sousClasseRetenue = computed(() => options.value?.sousClasse?.find((s) => s.id === sousClasse.value) ?? null)
 const donRetenu = computed(() => options.value?.amelioration?.dons.find((d) => d.id === don.value) ?? null)
+/** Les aptitudes optionnelles cochées : leurs choix s'ajoutent, ceux qu'elles remplacent disparaissent. */
+const optionnellesPrises = computed(() => (options.value?.optionnelles ?? []).filter((o) => optionnelles.value.includes(o.id)))
+const aptitudesGagnees = computed(() => {
+  const remplacees = optionnellesPrises.value.flatMap((o) => o.remplace.aptitudes)
+  return (options.value?.aptitudes ?? []).filter((a) => !remplacees.some((r) => a === r || a.startsWith(`${r} `)))
+})
 const choixAFaire = computed(() => [
-  ...(options.value?.choix ?? []),
+  ...(options.value?.choix ?? []).filter((c) => !optionnellesPrises.value.some((o) => o.remplace.listes.includes(c.cle))),
+  ...optionnellesPrises.value.flatMap((o) => o.choix),
   ...(sousClasseRetenue.value?.choix ?? []),
   ...(modeAmelioration.value === 'don' ? donRetenu.value?.choix ?? [] : []),
 ])
@@ -65,6 +73,7 @@ function reinitialiser() {
   don.value = ''
   caracDuDon.value = ''
   choix.value = {}
+  optionnelles.value = []
   confirmerAnnulation.value = false
   confirmerDetachement.value = false
 }
@@ -98,6 +107,7 @@ function basculer(cle, id, nombre) {
 
 function demande() {
   const resultat = { classe: options.value.classe.id }
+  if (optionnelles.value.length) resultat.optionnelles = [...optionnelles.value]
   if (options.value.sousClasse) resultat.sousClasse = sousClasse.value || null
   if (options.value.amelioration) {
     if (modeAmelioration.value === 'don') {
@@ -186,12 +196,22 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
             <strong>{{ options.classe.nom }} {{ options.niveauClasse }}</strong> —
             +{{ options.pv.gain }} PV (moyenne du d{{ options.pv.de }} et Constitution)
           </p>
-          <div v-if="options.aptitudes.length" class="bloc">
+          <div v-if="aptitudesGagnees.length" class="bloc">
             <h3>Ce que tu gagnes</h3>
-            <ul><li v-for="a in options.aptitudes" :key="a">{{ a }}</li></ul>
+            <ul><li v-for="a in aptitudesGagnees" :key="a">{{ a }}</li></ul>
           </div>
 
-          <fieldset v-if="options.sousClasse" class="bloc">
+          <fieldset v-if="options.optionnelles.length" class="bloc">
+          <legend>Aptitudes optionnelles de classe</legend>
+          <label v-for="o in options.optionnelles" :key="o.id" class="option">
+            <input v-model="optionnelles" type="checkbox" :value="o.id">
+            <span><strong>{{ o.nom }}</strong> <small>({{ reference(o) }})</small>
+              <span class="details">{{ o.resume }}<template v-if="o.remplace.aptitudes.length"> Remplace : {{ o.remplace.aptitudes.join(', ') }}.</template></span>
+            </span>
+          </label>
+        </fieldset>
+
+        <fieldset v-if="options.sousClasse" class="bloc">
             <legend>Sous-classe</legend>
             <label v-for="s in options.sousClasse" :key="s.id" class="option">
               <input v-model="sousClasse" type="radio" name="sous-classe" :value="s.id" required @change="choix = {}">
