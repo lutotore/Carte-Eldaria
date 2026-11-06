@@ -86,81 +86,75 @@ const enregistrer = () => envoyer(async () => {
   emit('recharger')
 })
 
-// --- Emplacements dépensés ---
+// --- Emplacements (on les dépense dans la barre de combat) ---
 const emplacements = computed(() => props.personnage.regles?.emplacements ?? { sorts: [], pacte: null })
 const utilises = computed(() => props.personnage.fiche.emplacementsUtilises ?? { sorts: [], pacte: 0 })
-const aDesEmplacements = computed(() => emplacements.value.sorts.length > 0 || emplacements.value.pacte)
-
-const ecrireEmplacements = (valeur) => envoyer(async () => {
-  await api.modifierPersonnage(props.campagneId, props.personnage.id, { emplacementsUtilises: valeur })
-  emit('recharger')
-})
-/** Cocher la 3e case coche les deux premières ; décocher la dernière cochée la libère. */
-function depenser(niveau, rang) {
-  const sorts = emplacements.value.sorts.map((_, i) => utilises.value.sorts[i] ?? 0)
-  sorts[niveau] = sorts[niveau] === rang ? rang - 1 : rang
-  return ecrireEmplacements({ ...utilises.value, sorts })
+function emplacementsDuNiveau(etat, n) {
+  if (n === 0) return null
+  if (etat.pacte && emplacements.value.pacte) {
+    const { nombre, niveau } = emplacements.value.pacte
+    return n === niveau ? { total: nombre, restants: nombre - utilises.value.pacte, pacte: true } : null
+  }
+  const total = emplacements.value.sorts[n - 1] ?? 0
+  return total ? { total, restants: total - (utilises.value.sorts[n - 1] ?? 0) } : null
 }
-const depenserPacte = (rang) => ecrireEmplacements({ ...utilises.value, pacte: utilises.value.pacte === rang ? rang - 1 : rang })
-const reposCourt = () => ecrireEmplacements({ ...utilises.value, pacte: 0 })
-const reposLong = () => ecrireEmplacements({ sorts: [], pacte: 0 })
+
+/** La page de sorts d'une classe : un cadre par niveau, des tours de magie au niveau maximal, avec ce qui y est choisi. */
+function cadres(etat) {
+  const affiches = new Set([...etat.accordes, ...etat.choisis.toursDeMagie, ...etat.choisis.connus, ...etat.choisis.grimoire,
+    ...etat.choisis.prepares, ...etat.choisis.arcanum])
+  const niveaux = [...Array(etat.niveauMax + 1).keys(), ...etat.limites.arcanum]
+  return niveaux.map((n) => ({
+    niveau: n,
+    emplacements: emplacementsDuNiveau(etat, n),
+    sorts: [...affiches].filter((id) => (etat.sorts[id]?.niveau ?? 0) === n).map((id) => ({
+      id,
+      toujours: etat.accordes.includes(id),
+      prepare: etat.mode === 'grimoire' ? etat.choisis.prepares.includes(id) : null,
+    })),
+  }))
+}
+const resume = (etat) => rubriquesDe(etat).map((cle) => {
+  const limite = limiteDe(etat, cle)
+  return `${RUBRIQUES[cle]} ${etat.choisis[cle].length}${limite !== null ? ` / ${limite}` : ''}`
+}).join(' · ')
 </script>
 
 <template>
-  <section v-if="etats.length" class="sorts papier" aria-labelledby="titre-sorts">
-    <h2 id="titre-sorts">Sorts</h2>
-
-    <div v-if="aDesEmplacements" class="bloc emplacements">
-      <h3>Emplacements</h3>
-      <div v-for="(total, i) in emplacements.sorts" :key="i" class="rangee">
-        <span class="niveau">Niv. {{ i + 1 }}</span>
-        <input v-for="r in total" :key="r" type="checkbox" :checked="(utilises.sorts[i] ?? 0) >= r" :disabled="enCours"
-          :aria-label="`Emplacement de niveau ${i + 1}, n° ${r}, dépensé`" @change="depenser(i, r)">
-      </div>
-      <div v-if="emplacements.pacte" class="rangee">
-        <span class="niveau">Pacte</span>
-        <input v-for="r in emplacements.pacte.nombre" :key="r" type="checkbox" :checked="utilises.pacte >= r" :disabled="enCours"
-          :aria-label="`Emplacement de pacte n° ${r}, dépensé`" @change="depenserPacte(r)">
-        <small>niveau {{ emplacements.pacte.niveau }}</small>
-      </div>
-      <div class="repos">
-        <button v-if="emplacements.pacte" type="button" class="lien-bouton" :disabled="enCours" @click="reposCourt">Repos court</button>
-        <button type="button" class="lien-bouton" :disabled="enCours" @click="reposLong">Repos long</button>
-      </div>
-    </div>
+  <section v-if="etats.length" class="sorts papier" aria-label="Sorts">
 
     <article v-for="etat in etats" :key="etat.classe" class="classe">
       <header class="entete">
-        <h3>{{ etat.nom }}</h3>
-        <p class="carac">
-          {{ NOMS_CARACS[etat.caracteristique] }} · DD {{ etat.dd }} · attaque {{ etat.attaque >= 0 ? '+' : '' }}{{ etat.attaque }}
-          <template v-if="etat.niveauMax"> · jusqu’au niveau {{ etat.niveauMax }}</template>
+        <div class="bandeau">
+          <p><span>Classe</span><strong>{{ etat.nom }}</strong></p>
+          <p><span>Caractéristique</span><strong>{{ NOMS_CARACS[etat.caracteristique] }}</strong></p>
+          <p><span>DD des sorts</span><strong>{{ etat.dd }}</strong></p>
+          <p><span>Attaque</span><strong>{{ etat.attaque >= 0 ? '+' : '' }}{{ etat.attaque }}</strong></p>
+        </div>
+        <p class="compteurs">
+          {{ resume(etat) }}
+          <button v-if="edition?.classe !== etat.classe" type="button" class="bouton" @click="modifier(etat)">Choisir mes sorts</button>
         </p>
-        <button v-if="edition?.classe !== etat.classe" type="button" class="lien-bouton" @click="modifier(etat)">Modifier</button>
       </header>
 
-      <p v-if="etat.accordes.length" class="accordes">
-        <strong>Toujours disponibles :</strong>
-        <span v-for="(id, i) in etat.accordes" :key="id" :title="infobulle(etat, id)">{{ libelle(etat, id) }}{{ i < etat.accordes.length - 1 ? ', ' : '' }}</span>
-      </p>
-
-      <!-- Lecture -->
-      <template v-if="edition?.classe !== etat.classe">
-        <div v-for="cle in rubriquesDe(etat)" :key="cle" class="rubrique">
-          <h4>
-            {{ RUBRIQUES[cle] }}
-            <small v-if="limiteDe(etat, cle) !== null">{{ etat.choisis[cle].length }} / {{ limiteDe(etat, cle) }}</small>
-            <small v-else-if="cle === 'grimoire'">{{ etat.choisis.grimoire.length }} (au moins {{ etat.limites.grimoire }} attendus)</small>
-          </h4>
-          <p v-if="!etat.choisis[cle].length" class="vide">Rien de choisi pour l’instant.</p>
-          <ul v-else class="liste">
-            <li v-for="[n, ids] in parNiveau(etat, etat.choisis[cle])" :key="n">
-              <span class="niveau">{{ titreNiveau(n) }}</span>
-              <span v-for="(id, i) in ids" :key="id" :title="infobulle(etat, id)">{{ libelle(etat, id) }}{{ i < ids.length - 1 ? ', ' : '' }}</span>
+      <!-- Lecture : un cadre par niveau de sort -->
+      <div v-if="edition?.classe !== etat.classe" class="cadres">
+        <div v-for="cadre in cadres(etat)" :key="cadre.niveau" class="cadre" :class="{ tours: cadre.niveau === 0 }">
+          <div class="tete">
+            <span class="num">{{ cadre.niveau }}</span>
+            <span class="intitule">{{ cadre.niveau === 0 ? 'Tours de magie' : `Niveau ${cadre.niveau}` }}</span>
+            <span v-if="cadre.emplacements" class="emplacements" :title="cadre.emplacements.pacte ? 'Magie de pacte' : 'Emplacements restants'">
+              {{ cadre.emplacements.restants }}/{{ cadre.emplacements.total }}
+            </span>
+          </div>
+          <ul v-if="cadre.sorts.length">
+            <li v-for="s in cadre.sorts" :key="s.id" :title="infobulle(etat, s.id)" :class="{ toujours: s.toujours, 'non-prepare': s.prepare === false }">
+              <span class="puce">{{ s.toujours ? '◆' : s.prepare === false ? '○' : '●' }}</span>{{ libelle(etat, s.id) }}
             </li>
           </ul>
+          <p v-else class="vide">—</p>
         </div>
-      </template>
+      </div>
 
       <!-- Modification -->
       <form v-else class="edition" @submit.prevent="enregistrer">
@@ -191,34 +185,43 @@ const reposLong = () => ecrireEmplacements({ sorts: [], pacte: 0 })
         </div>
       </form>
     </article>
-    <p class="legende">(R) rituel · (C) concentration — survole un sort pour voir son école et sa page.</p>
+    <p class="legende">◆ toujours préparé · ● préparé ou connu · ○ dans le grimoire, non préparé · (R) rituel · (C) concentration — survole un sort pour voir son école et sa page.</p>
     <p v-if="erreur" class="message message--erreur" role="alert">{{ erreur }}</p>
   </section>
 </template>
 
 <style scoped>
-.sorts { padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 0.9rem; }
+.sorts { padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 1rem; }
 .sorts h2 { margin: 0; }
-.sorts h3 { margin: 0; font-size: 1.05rem; }
-.sorts h4 { margin: 0.3rem 0 0.2rem; font-size: 0.98rem; }
-.sorts small { font-weight: normal; color: #6b5640; }
-.bloc, .classe { border: 1px solid rgba(90, 60, 30, 0.35); border-radius: 4px; padding: 0.6rem 0.8rem; }
-.rangee { display: flex; align-items: center; gap: 0.35rem; }
-.niveau { display: inline-block; min-width: 3.4rem; font-weight: bold; color: #7a5a3a; font-variant-numeric: tabular-nums; }
-.repos { display: flex; gap: 1rem; margin-top: 0.4rem; }
-.entete { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.4rem 1rem; }
-.carac { margin: 0; flex: 1; color: #5b4632; }
-.accordes { margin: 0.4rem 0 0; }
-.liste { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.15rem; }
-.vide { margin: 0; font-style: italic; color: #7a6450; }
-.edition { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+.sorts small { font-weight: normal; color: var(--encre-2); }
+.classe { display: flex; flex-direction: column; gap: 0.6rem; }
+.bandeau { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 0.3rem 0.8rem; padding: 0.5rem 0.8rem; border: 1.5px solid var(--encre-2); border-radius: 6px; background: rgba(246, 236, 212, 0.45); }
+.bandeau p { margin: 0; display: flex; flex-direction: column; }
+.bandeau span { order: 2; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--encre-2); border-top: 1px solid var(--papier-ombre); }
+.bandeau strong { font-family: var(--f-titre); font-size: 1.25rem; font-weight: normal; }
+@media (max-width: 600px) { .bandeau { grid-template-columns: repeat(2, 1fr); } }
+.compteurs { margin: 0.4rem 0 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; font-size: var(--t-s); color: var(--encre-2); }
+.cadres { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr)); gap: 0.6rem; }
+.cadre { border: 1.5px solid var(--encre-2); border-radius: 6px; background: rgba(246, 236, 212, 0.45); overflow: hidden; }
+.tete { display: flex; align-items: center; gap: 0.5rem; padding: 0.25rem 0.5rem; background: rgba(106, 80, 55, 0.14); border-bottom: 1px solid var(--papier-ombre); }
+.num { display: inline-grid; place-items: center; width: 1.7rem; height: 1.7rem; border-radius: 50%; border: 1.5px solid var(--encre-2); background: #f6ecd4; font-family: var(--f-titre); font-size: 1.05rem; }
+.intitule { flex: 1; font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.06em; color: var(--encre-2); }
+.emplacements { font-family: var(--f-cote); font-size: var(--t-s); padding: 0 0.4rem; border: 1px solid var(--papier-ombre); border-radius: 999px; background: #f6ecd4; }
+.cadre ul { list-style: none; margin: 0; padding: 0.3rem 0.55rem 0.45rem; display: flex; flex-direction: column; }
+.cadre li { padding: 0.1rem 0; border-bottom: 1px solid var(--ligne-cahier); font-size: 0.95rem; }
+.cadre li.toujours { color: var(--ruban); }
+.cadre li.non-prepare { color: var(--encre-2); }
+.puce { display: inline-block; width: 1.1rem; font-size: 0.8rem; color: var(--encre-2); }
+.vide { margin: 0; padding: 0.3rem 0.55rem; color: var(--papier-ombre); }
+.edition { display: flex; flex-direction: column; gap: 0.6rem; }
 .edition .rubrique { border: 1px solid rgba(90, 60, 30, 0.25); border-radius: 4px; padding: 0.4rem 0.6rem; }
 .edition legend { font-weight: bold; padding: 0 0.3rem; }
+.niveau { display: inline-block; min-width: 3.4rem; font-weight: bold; color: #7a5a3a; font-variant-numeric: tabular-nums; }
 .niveau-sorts { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.15rem 0; }
 .options { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: 0 0.8rem; flex: 1; }
 .option { display: flex; gap: 0.35rem; align-items: baseline; font-size: 0.95rem; }
 .trop { color: #8a3b2c; font-weight: bold; }
 .aide { margin: 0 0 0.3rem; font-style: italic; font-size: 0.92rem; }
 .actions { display: flex; gap: 0.8rem; align-items: center; }
-.legende { margin: 0; font-size: 0.85rem; color: #6b5640; }
+.legende { margin: 0; font-size: 0.85rem; color: var(--encre-2); }
 </style>

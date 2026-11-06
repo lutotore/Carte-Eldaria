@@ -3,6 +3,7 @@ import { onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { api } from '../api/client.js'
 import AptitudesRegles from '../components/personnage/AptitudesRegles.vue'
+import BarreDeCombat from '../components/personnage/BarreDeCombat.vue'
 import BoursePersonnage from '../components/personnage/BoursePersonnage.vue'
 import FichePersonnage from '../components/personnage/FichePersonnage.vue'
 import ImportAideDD from '../components/personnage/ImportAideDD.vue'
@@ -84,17 +85,38 @@ const supprimer = () => envoyer(async () => {
 
     <template v-else-if="personnage">
       <p v-if="personnage.estMj" class="bandeau">Fiche de <strong>{{ personnage.joueur }}</strong> — tu peux tout modifier ; le joueur voit tes changements.</p>
-      <ImportAideDD :campagne-id="id" :personnage="personnage" @importe="apresImport" />
-      <MonteeDeNiveau :campagne-id="id" :personnage="personnage" @recharger="recharger" />
-      <FichePersonnage :campagne-id="id" :personnage="personnage" @recharger="recharger" />
-      <AptitudesRegles v-if="personnage.regles" :regles="personnage.regles" />
-      <SortsPersonnage v-if="personnage.sorts?.length" :campagne-id="id" :personnage="personnage" @recharger="recharger" />
-      <div class="annexes">
-        <div class="pile">
+      <div class="outils">
+        <MonteeDeNiveau :campagne-id="id" :personnage="personnage" @recharger="recharger" />
+        <ImportAideDD :campagne-id="id" :personnage="personnage" @importe="apresImport" />
+      </div>
+      <BarreDeCombat :campagne-id="id" :personnage="personnage" @recharger="recharger" />
+
+      <!-- Page 1 : la feuille -->
+      <div id="feuille" class="page">
+        <FichePersonnage :campagne-id="id" :personnage="personnage" @recharger="recharger" />
+      </div>
+
+      <!-- Page 2 : aptitudes et histoire -->
+      <div id="aptitudes" class="page">
+        <h2 class="titre-page">Aptitudes et histoire</h2>
+        <AptitudesRegles v-if="personnage.regles" :regles="personnage.regles" />
+        <MarquesDuReve :campagne-id="id" :personnage-id="personnage.id" :marques="personnage.marques" :est-mj="personnage.estMj" @recharger="recharger" />
+        <FichePersonnage :campagne-id="id" :personnage="personnage" partie="recit" @recharger="recharger" />
+      </div>
+
+      <!-- Page 3 : sorts -->
+      <div v-if="personnage.sorts?.length" id="sorts" class="page">
+        <h2 class="titre-page">Sorts</h2>
+        <SortsPersonnage :campagne-id="id" :personnage="personnage" @recharger="recharger" />
+      </div>
+
+      <!-- Équipement -->
+      <div id="equipement" class="page">
+        <h2 class="titre-page">Équipement</h2>
+        <div class="annexes">
           <BoursePersonnage :campagne-id="id" :personnage-id="personnage.id" :bourse="personnage.bourse" @recharger="recharger" />
-          <MarquesDuReve :campagne-id="id" :personnage-id="personnage.id" :marques="personnage.marques" :est-mj="personnage.estMj" @recharger="recharger" />
+          <InventairePersonnage :campagne-id="id" :personnage-id="personnage.id" :lignes="personnage.inventaire" @recharger="recharger" />
         </div>
-        <InventairePersonnage :campagne-id="id" :personnage-id="personnage.id" :lignes="personnage.inventaire" @recharger="recharger" />
       </div>
       <div v-if="personnage.estMj" class="danger">
         <button v-if="!confirmerSuppression" type="button" class="lien-bouton supprimer" @click="confirmerSuppression = true">Supprimer cette fiche…</button>
@@ -116,9 +138,11 @@ const supprimer = () => envoyer(async () => {
 .retour:hover { color: var(--laiton-clair); }
 .creation { max-width: 32rem; align-self: center; }
 .bandeau { margin: 0; color: #e8d6b0; font-style: italic; }
-.annexes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 1.2rem; align-items: start; }
+.outils { display: flex; flex-direction: column; gap: 0.5rem; }
+.page { display: flex; flex-direction: column; gap: 1rem; scroll-margin-top: 9rem; }
+.titre-page { margin: 0.6rem 0 0; font-family: var(--f-titre); font-weight: normal; color: var(--laiton-clair); border-bottom: 1px solid var(--couture); padding-bottom: 0.2rem; }
+.annexes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 1.2rem; align-items: start; }
 @media (max-width: 800px) { .annexes { grid-template-columns: minmax(0, 1fr); } }
-.pile { display: flex; flex-direction: column; gap: 1.2rem; }
 .danger { display: flex; justify-content: flex-end; }
 .supprimer { color: #e3a196; }
 .confirmer { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; color: #e8d6b0; background: rgba(0, 0, 0, 0.3); padding: 0.4rem 0.7rem; border-radius: 4px; }

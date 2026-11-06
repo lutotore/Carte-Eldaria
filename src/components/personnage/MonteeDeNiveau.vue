@@ -138,7 +138,7 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
 
 <template>
   <p v-if="!etat && erreur" class="message message--erreur" role="alert">Montée de niveau indisponible : {{ erreur }}</p>
-  <section v-if="etat" class="montee papier" aria-labelledby="titre-montee">
+  <section v-if="etat" class="montee papier" :class="{ compacte: !ouvert && !rattachement }" aria-labelledby="titre-montee">
     <!-- Fiche libre : on la rattache aux règles -->
     <template v-if="rattachement">
       <h2 id="titre-montee">Suivre les règles du site</h2>
@@ -326,4 +326,9 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
 .pied { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.8rem; font-size: 0.92rem; }
 .discret { color: #7a6450; }
 .confirmer { display: inline-flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.compacte { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 0.45rem 0.9rem; gap: 0.4rem 1rem; }
+.compacte .entete { gap: 0.8rem; }
+.compacte h2 { font-size: 1.05rem; }
+.compacte .chapeau { font-size: var(--t-s); }
+.compacte .pied { gap: 1rem; font-size: var(--t-s); }
 </style>

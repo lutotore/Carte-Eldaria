@@ -90,7 +90,7 @@ function etatDUneClasse(suivie, fiche, catalogue) {
   const mod = modificateur(fiche.caracteristiques[prog.carac])
   const maitrise = bonusMaitrise(fiche.niveau)
   return {
-    classe: suivie.classe, nom: prog.nom, mode: prog.mode, caracteristique: prog.carac,
+    classe: suivie.classe, nom: prog.nom, mode: prog.mode, caracteristique: prog.carac, pacte: prog.incantation === 'pacte',
     dd: 8 + maitrise + mod, attaque: maitrise + mod, niveauMax, limites, accordes, choisis, options,
     ecoles: prog.ecoles ?? null, horsEcoles: (prog.libres ?? []).filter((n) => n <= suivie.niveau).length,
     sorts: Object.fromEntries([...cites].filter((id) => catalogue.sort(id)).map((id) => [id, decrire(catalogue.sort(id))])),
