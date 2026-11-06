@@ -45,6 +45,14 @@ describe('fiche vierge', () => {
 })
 
 describe('erreurChamps', () => {
+  it('suit les emplacements de sorts dépensés : neuf niveaux au plus, et ceux de la magie de pacte', () => {
+    expect(erreurChamps({ emplacementsUtilises: { sorts: [2, 1, 0], pacte: 1 } })).toBeNull()
+    expect(erreurChamps({ emplacementsUtilises: { sorts: [2, -1], pacte: 0 } })).toMatch(/emplacements/i)
+    expect(erreurChamps({ emplacementsUtilises: { sorts: Array(10).fill(0), pacte: 0 } })).toMatch(/emplacements/i)
+    expect(erreurChamps({ emplacementsUtilises: { sorts: [], pacte: 5 } })).toMatch(/emplacements/i)
+    expect(ficheVierge('X').emplacementsUtilises).toEqual({ sorts: [], pacte: 0 })
+  })
+
   it('ne laisse pas écrire les règles suivies à la main : elles ne changent que par la montée de niveau', () => {
     expect(erreurChamps({ regles: { classes: [] } })).toMatch(/regles/)
   })

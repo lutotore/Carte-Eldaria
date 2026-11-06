@@ -30,6 +30,16 @@ describe('rattacher une fiche aux règles', () => {
     expect(rattachement.classes.find((c) => c.id === 'guerrier')).toEqual({
       id: 'guerrier', nom: 'Guerrier', niveauSousClasse: 3, sousClasses: [{ id: 'champion', nom: 'Champion' }],
     })
+    expect(rattachement.dons).toEqual([{ id: 'lutteur', nom: 'Lutteur' }])
+  })
+
+  it('joint à la fiche ses aptitudes d’après les règles, et rien pour une fiche libre', async () => {
+    const { portail, qui, personnageId } = await table()
+    expect(portail.personnage({ ...qui('lea'), personnageId }).regles).toBeNull()
+    portail.rattacherAuxRegles({ ...qui('lea'), personnageId, classe: 'guerrier', dons: ['lutteur'] })
+    const { regles } = portail.personnage({ ...qui('lea'), personnageId })
+    expect(regles.classes[0]).toMatchObject({ nom: 'Guerrier', niveau: 2, niveaux: [{ niveau: 1 }, { niveau: 2 }] })
+    expect(regles.dons.map((d) => d.nom)).toEqual(['Lutteur'])
   })
 
   it('se fait par le joueur ou un MJ, et refuse une classe inconnue', async () => {
@@ -114,5 +124,42 @@ describe('monter de niveau', () => {
     portail.detacherDesRegles({ ...qui('zoe'), personnageId })
     expect(fiche().regles).toBeNull()
     portail.modifierPersonnage({ ...qui('lea'), personnageId, champs: { niveau: 5 } })
+  })
+})
+
+describe('sorts', () => {
+  const LIVRE = 'Test'
+  const sort = (id, niveau, classes) => ({ type: 'sort', id, nom: id, niveau, ecole: 'évocation', classes, source: LIVRE })
+  const SORTS = [sort('lumiere', 0, ['clerc']), sort('thaumaturgie', 0, ['clerc']), sort('flamme-sacree', 0, ['clerc']), sort('assistance', 0, ['clerc']),
+    sort('soin', 1, ['clerc']), sort('benediction', 1, ['clerc']), sort('injonction', 1, ['clerc']), sort('aide', 2, ['clerc'])]
+
+  async function clerc() {
+    const outils = await table()
+    const { portail, qui, personnageId } = outils
+    portail.importerRegles({ livre: LIVRE, elements: SORTS })
+    portail.modifierPersonnage({ ...qui('lea'), personnageId, champs: { caracteristiques: { for: 10, dex: 10, con: 10, int: 10, sag: 14, cha: 10 } } })
+    portail.rattacherAuxRegles({ ...qui('lea'), personnageId, classe: 'clerc', sousClasse: 'vie' })
+    return outils
+  }
+
+  it('joint à la fiche ce que chaque classe peut lancer', async () => {
+    const { portail, qui, personnageId } = await clerc()
+    const [etat] = portail.personnage({ ...qui('lea'), personnageId }).sorts
+    expect(etat).toMatchObject({ classe: 'clerc', mode: 'prepares', limites: { toursDeMagie: 3, prepares: 4 }, niveauMax: 1 })
+    expect(etat.options.sorts).toEqual(['soin', 'benediction', 'injonction'])
+  })
+
+  it('enregistre une sélection juste, refuse les autres', async () => {
+    const { portail, qui, personnageId } = await clerc()
+    portail.choisirSorts({ ...qui('lea'), personnageId, classe: 'clerc', selection: { toursDeMagie: ['lumiere', 'thaumaturgie'], prepares: ['soin'] } })
+    expect(portail.personnage({ ...qui('lea'), personnageId }).sorts[0].choisis).toMatchObject({ toursDeMagie: ['lumiere', 'thaumaturgie'], prepares: ['soin'] })
+    expect(() => portail.choisirSorts({ ...qui('lea'), personnageId, classe: 'clerc', selection: { prepares: ['aide'] } })).toThrow(refus('requete_invalide'))
+    expect(() => portail.choisirSorts({ ...qui('max'), personnageId, classe: 'clerc', selection: {} })).toThrow(refus('introuvable'))
+  })
+
+  it('ne donne rien à une fiche libre', async () => {
+    const { portail, qui, personnageId } = await table()
+    expect(portail.personnage({ ...qui('lea'), personnageId }).sorts).toEqual([])
+    expect(() => portail.choisirSorts({ ...qui('lea'), personnageId, classe: 'clerc', selection: {} })).toThrow(refus('requete_invalide'))
   })
 })

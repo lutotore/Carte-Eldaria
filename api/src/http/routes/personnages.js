@@ -49,12 +49,18 @@ export function routesPersonnages(api, portail) {
   api.get('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request) => (
     portail.optionsMontee({ ...perso(request), classe: typeof request.query?.classe === 'string' ? request.query.classe : null })))
   api.put('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request, reply) => {
-    const { classe, sousClasse, classes } = corps(request)
-    portail.rattacherAuxRegles({ ...perso(request), classe, sousClasse, classes })
+    const { classe, sousClasse, classes, dons } = corps(request)
+    portail.rattacherAuxRegles({ ...perso(request), classe, sousClasse, classes, dons })
     return sansContenu(reply)
   })
   api.delete('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request, reply) => {
     portail.detacherDesRegles(perso(request))
+    return sansContenu(reply)
+  })
+  api.put('/api/campagnes/:id/personnages/:personnageId/sorts/:classe', connecte, async (request, reply) => {
+    const { toursDeMagie, connus, grimoire, prepares, arcanum } = corps(request)
+    const selection = Object.fromEntries(Object.entries({ toursDeMagie, connus, grimoire, prepares, arcanum }).filter(([, v]) => v !== undefined))
+    portail.choisirSorts({ ...perso(request), classe: request.params.classe, selection })
     return sansContenu(reply)
   })
   api.post('/api/campagnes/:id/personnages/:personnageId/montees', connecte, async (request, reply) => {

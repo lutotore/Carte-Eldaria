@@ -3,7 +3,7 @@
  * Toutes les recherches passent par des Map : un id comme « __proto__ » ne trouve jamais rien.
  */
 
-const TYPES = ['classe', 'sous-classe', 'don', 'liste', 'option-classe']
+const TYPES = ['classe', 'sous-classe', 'don', 'liste', 'option-classe', 'sort', 'sorts-accordes']
 
 /** Clés de `regles.choix` qui ne sont pas des listes. */
 const CLES_RESERVEES = ['dons', 'expertise', 'competences', 'options-classe']
@@ -18,9 +18,15 @@ function enrichir(liste, ajout) {
   return { ...liste, options: [...liste.options, ...ajout.options] }
 }
 
+/** Un sort qu'un autre livre rend accessible à d'autres classes. */
+function ajouterClasses(sort, ajout) {
+  if (!sort) throw new Error(`Sort inconnu à enrichir : ${ajout.id}.`)
+  return { ...sort, classes: [...sort.classes, ...ajout.classes.filter((c) => !sort.classes.includes(c))] }
+}
+
 export function creerCatalogue(elements) {
   const index = new Map(TYPES.map((t) => [t, new Map()]))
-  const ajouts = elements.filter((e) => e?.type === 'liste' && e.ajout)
+  const ajouts = elements.filter((e) => (e?.type === 'liste' || e?.type === 'sort') && e.ajout)
   for (const element of elements.filter((e) => !ajouts.includes(e))) {
     const table = index.get(element.type)
     if (!table) throw new Error(`Type d’élément inconnu : ${element.type}.`)
@@ -29,8 +35,10 @@ export function creerCatalogue(elements) {
     if (table.has(cle)) throw new Error(`Élément en double : ${element.type} ${element.id}.`)
     table.set(cle, element)
   }
-  const listes = index.get('liste')
-  for (const ajout of ajouts) listes.set(ajout.id, enrichir(listes.get(ajout.id), ajout))
+  for (const ajout of ajouts) {
+    const table = index.get(ajout.type)
+    table.set(ajout.id, ajout.type === 'liste' ? enrichir(table.get(ajout.id), ajout) : ajouterClasses(table.get(ajout.id), ajout))
+  }
   const tous = (type) => [...index.get(type).values()]
   const un = (type, cle) => index.get(type).get(cle) ?? null
 
@@ -43,6 +51,10 @@ export function creerCatalogue(elements) {
     don: (id) => un('don', id),
     liste: (id) => un('liste', id),
     optionsDeClasse: (classeId) => tous('option-classe').filter((o) => o.classe === classeId),
+    sorts: () => tous('sort'),
+    sort: (id) => un('sort', id),
+    /** Sorts qu'une sous-classe donne d'office (toujours préparés, connus en plus) ou ajoute à la liste de sa classe (étendus). */
+    sortsAccordes: (classeId, sousClasseId) => tous('sorts-accordes').filter((s) => s.classe === classeId && s.sousClasse === sousClasseId),
     listesDuGroupe: (groupe) => tous('liste').filter((l) => l.groupe === groupe),
   }
 }
@@ -62,7 +74,11 @@ function erreurElement(element, catalogue) {
   if (typeof element !== 'object' || element === null) return 'Élément invalide.'
   const nom = `${element.type} ${element.id}`
   if (typeof element.id !== 'string' || !ID.test(element.id)) return `${nom} : id invalide (minuscules, chiffres et tirets).`
-  if (typeof element.nom !== 'string' || !element.nom.trim()) return `${nom} : nom manquant.`
+  const sansNom = element.type === 'sorts-accordes' || element.ajout
+  if (!sansNom && (typeof element.nom !== 'string' || !element.nom.trim())) return `${nom} : nom manquant.`
+  if (element.type === 'sort' && !element.ajout && !(Number.isInteger(element.niveau) && element.niveau >= 0 && element.niveau <= 9 && Array.isArray(element.classes))) {
+    return `${nom} : niveau ou classes invalides.`
+  }
   if (typeof element.source !== 'string' || !element.source.trim()) return `${nom} : source manquante.`
   const rattachee = element.type === 'sous-classe' || element.type === 'option-classe'
   if (rattachee && !catalogue.classe(element.classe)) return `${nom} : classe inconnue (${element.classe}).`
@@ -71,9 +87,22 @@ function erreurElement(element, catalogue) {
   if (!INCANTATIONS.includes(element.incantation)) return `${nom} : incantation inconnue (${element.incantation}).`
   const parmi = element.amelioration?.parmi ?? []
   if (!parmi.every((c) => CARACS.includes(c))) return `${nom} : caractéristique inconnue dans l’amélioration.`
+  if (element.type === 'sorts-accordes') return erreurSortsAccordes(element, nom, catalogue)
   const nommees = [...listesNommees(element), ...(element.remplace?.listes ?? [])]
   const manquante = nommees.find((liste) => !catalogue.liste(liste))
   return manquante ? `${nom} : liste inconnue (${manquante}).` : null
+}
+
+const MODES_ACCORDES = ['prepares', 'connus', 'etendus']
+
+function erreurSortsAccordes(element, nom, catalogue) {
+  if (!catalogue.sousClasse(element.classe, element.sousClasse)) return `${nom} : sous-classe inconnue (${element.classe}/${element.sousClasse}).`
+  if (!MODES_ACCORDES.includes(element.mode)) return `${nom} : mode inconnu (${element.mode}).`
+  const tables = [element.niveaux ?? {}, ...Object.values(element.parChoix?.options ?? {})]
+  const ids = tables.flatMap((t) => Object.values(t).flat())
+  const inconnu = ids.find((id) => !catalogue.sort(id))
+  if (inconnu) return `${nom} : sort inconnu (${inconnu}).`
+  return element.parChoix && !catalogue.liste(element.parChoix.liste) ? `${nom} : liste inconnue (${element.parChoix.liste}).` : null
 }
 
 /** Message d'erreur, ou null si ces éléments forment un catalogue cohérent. Sert à vérifier un fichier avant de l'importer. */

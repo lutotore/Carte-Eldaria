@@ -9,6 +9,7 @@
  * Les PV gagnés sont toujours la moyenne du dé (règle de la table), y compris au premier niveau d'une classe ajoutée par multiclassage.
  */
 import { CARACTERISTIQUES, COMPETENCES, modificateur } from '../personnage.js'
+import { connaitLesSorts, nouveauxSorts } from './sorts.js'
 
 const NIVEAU_MAX = 20
 const CARAC_MAX = 20
@@ -78,7 +79,17 @@ export function erreurRattachement(fiche, demande, catalogue) {
     if (erreur) return erreur
   }
   const total = somme(lignes.map((l) => l.niveau))
-  return total === fiche.niveau ? null : `Le total des niveaux de classe doit faire ${fiche.niveau}, le niveau de la fiche.`
+  if (total !== fiche.niveau) return `Le total des niveaux de classe doit faire ${fiche.niveau}, le niveau de la fiche.`
+  return erreurDonsDejaPris(demande?.dons ?? [], catalogue)
+}
+
+/** Les dons qu'avait déjà le personnage (par exemple lus dans un export aide-dd). */
+function erreurDonsDejaPris(dons, catalogue) {
+  if (!Array.isArray(dons)) return 'Dons invalides.'
+  const inconnu = dons.find((id) => !catalogue.don(id))
+  if (inconnu) return `Don inconnu : ${inconnu}.`
+  const double = dons.find((id, i) => dons.indexOf(id) !== i && !catalogue.don(id).repetable)
+  return double ? `Le don ${catalogue.don(double).nom} apparaît deux fois.` : null
 }
 
 /** La fiche, rattachée aux règles. Ses PV ne bougent pas : le joueur les a déjà comptés. */
@@ -91,7 +102,7 @@ export function rattacher(fiche, demande, catalogue) {
   const regles = {
     classes: lignes.map(({ classe, niveau, sousClasse = null }) => ({ classe, niveau, sousClasse: sousClasse ?? null })),
     pvDes,
-    choix: {},
+    choix: demande.dons?.length ? { dons: [...demande.dons] } : {},
     montees: [],
   }
   return synchroniser({ ...fiche, regles }, catalogue)
@@ -183,6 +194,15 @@ function lierExpertise(choix) {
 
 const bonusPvDesDons = (ids, catalogue) => somme(ids.map((id) => catalogue.don(id)?.pvParNiveau ?? 0))
 
+/** Ce qui reste à faire après la montée : choisir les nouveaux sorts dans le panneau Sorts. */
+function aVenir(classe, sousClasse, niveauActuel) {
+  if (!connaitLesSorts(classe, sousClasse)) {
+    return (classe.incantation ?? sousClasse?.incantation) ? ['Sorts : note-les sur la fiche, les règles du site ne disent pas comment cette classe les apprend.'] : []
+  }
+  const nouveaux = nouveauxSorts(classe, sousClasse, niveauActuel)
+  return nouveaux.length ? [`Nouveaux sorts (${nouveaux.join(', ')}) : choisis-les ensuite dans le panneau Sorts de ta fiche.`] : []
+}
+
 // --- Aptitudes optionnelles de classe (Tasha) : elles s'ajoutent, ou remplacent une aptitude et ses choix ---
 
 const OPTIONS_CLASSE = 'options-classe'
@@ -240,6 +260,7 @@ export function optionsDeMontee(fiche, catalogue, classeId = fiche.regles?.class
     sousClasse: niveauClasse === classe.niveauSousClasse
       ? catalogue.sousClassesDe(classeId).map((s) => ({
         id: s.id, nom: s.nom, source: s.source, page: s.page ?? null, aptitudes: auNiveau(s.aptitudes, niveauClasse), choix: choix(auNiveau(s.choix, niveauClasse)),
+        sorts: nouveauxSorts(classe, s, niveauClasse - 1),
       }))
       : null,
     amelioration: classe.ameliorations.includes(niveauClasse)
@@ -248,7 +269,8 @@ export function optionsDeMontee(fiche, catalogue, classeId = fiche.regles?.class
     choix: lierExpertise(choix([...(entree?.choix ?? []), ...auNiveau(classe.choix, niveauClasse), ...auNiveau(sousClasse?.choix, niveauClasse)])
       .filter((c) => !remplacees.listes.includes(c.cle))),
     optionnelles,
-    aVenir: (classe.incantation ?? sousClasse?.incantation) ? ['Sorts appris et préparés : note-les sur la fiche, le site ne gère pas encore les sorts.'] : [],
+    sorts: nouveauxSorts(classe, sousClasse, niveauClasse - 1),
+    aVenir: aVenir(classe, sousClasse, niveauClasse - 1),
   }
 }
 

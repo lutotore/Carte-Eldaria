@@ -88,6 +88,9 @@ const CHAMPS = {
   jetsMort: (v) => (estObjet(v) && memesCles(v, ['succes', 'echecs']) && estEntier(v.succes, 0, 3) && estEntier(v.echecs, 0, 3)
     ? null : 'Jets contre la mort : de 0 à 3 succès et échecs.'),
   inspiration: (v) => (typeof v === 'boolean' ? null : 'Inspiration : oui ou non.'),
+  emplacementsUtilises: (v) => (estObjet(v) && memesCles(v, ['sorts', 'pacte']) && Array.isArray(v.sorts) && v.sorts.length <= 9
+    && v.sorts.every((n) => estEntier(n, 0, 9)) && estEntier(v.pacte, 0, 4)
+    ? null : 'Emplacements dépensés : de 0 à 9 par niveau de sort, de 0 à 4 pour la magie de pacte.'),
   attaques: texte(4000),
   langues: texte(2000),
   maitrises: texte(2000),
@@ -107,7 +110,7 @@ export function ficheVierge(nom) {
     classe: '', niveau: 1, espece: '', historique: '', alignement: '', xp: 0,
     caracteristiques: Object.fromEntries(CLES_CARACS.map((c) => [c, 10])),
     ca: 10, pvMax: 0, pvActuels: 0, pvTemporaires: 0, vitesse: '9 m', desDeVie: '',
-    sauvegardes: [], competences: {}, jetsMort: { succes: 0, echecs: 0 }, inspiration: false,
+    sauvegardes: [], competences: {}, jetsMort: { succes: 0, echecs: 0 }, inspiration: false, emplacementsUtilises: { sorts: [], pacte: 0 },
     attaques: '', langues: '', maitrises: '', capacites: '', sorts: '', apparence: '', histoire: '', notes: '',
   }
 }

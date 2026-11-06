@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { differencesImport, ficheDepuisAideDD, lireXmlAideDD } from '../../src/domain/aideDD.js'
+import { differencesImport, ficheDepuisAideDD, lireXmlAideDD, reglesDepuisAideDD } from '../../src/domain/aideDD.js'
 import { erreurChamps, ficheVierge } from '../../src/domain/personnage.js'
 
 const IVAN = readFileSync(new URL('../fixtures/ivan-aide-dd.xml', import.meta.url), 'utf8')
@@ -119,5 +119,43 @@ describe('differencesImport : l’aperçu avant de remplacer', () => {
     expect(diff.find((d) => d.cle === 'niveau')).toEqual({ cle: 'niveau', libelle: 'Niveau', avant: '1', apres: '2' })
     expect(diff.find((d) => d.cle === 'caracteristiques').apres).toBe('FOR 15 · DEX 15 · CON 17 · INT 9 · SAG 10 · CHA 12')
     expect(diff.find((d) => d.cle === 'competences').apres).toBe('Acrobaties, Athlétisme, Intimidation, Perception')
+  })
+})
+
+describe('reglesDepuisAideDD : rattacher la fiche importée aux règles du site', () => {
+  /** Ce que le serveur propose pour rattacher une fiche (classes et dons de tous les livres importés). */
+  const RATTACHEMENT = {
+    niveau: 2,
+    classes: [
+      { id: 'barbare', nom: 'Barbare', niveauSousClasse: 3, sousClasses: [{ id: 'berserker', nom: 'Voie du berserker' }] },
+      { id: 'guerrier', nom: 'Guerrier', niveauSousClasse: 3, sousClasses: [{ id: 'champion', nom: 'Champion' }, { id: 'maitre-de-guerre', nom: 'Maître de guerre' }] },
+      { id: 'clerc', nom: 'Clerc', niveauSousClasse: 1, sousClasses: [{ id: 'vie', nom: 'Domaine de la vie' }] },
+    ],
+    dons: [{ id: 'grand-maitre-armes', nom: 'Grand maître d’armes' }, { id: 'robuste', nom: 'Robuste' }, { id: 'lutteur', nom: 'Lutteur' }],
+  }
+
+  it('reconnaît la classe d’Ivan et son don, même sous le nom qu’emploie aide-dd', () => {
+    expect(reglesDepuisAideDD(IVAN, RATTACHEMENT)).toEqual({
+      demande: { classe: 'barbare', sousClasse: null, dons: ['grand-maitre-armes'] }, avertissements: [],
+    })
+  })
+
+  it('reconnaît une sous-classe écrite entre parenthèses', () => {
+    const texte = xml(BASE.replace('<level>1</level>', '<level>3</level>') + '<class>Guerrier (Maître de guerre)</class>')
+      .replace('<class>Guerrier</class>', '')
+    expect(reglesDepuisAideDD(texte, RATTACHEMENT).demande).toEqual({ classe: 'guerrier', sousClasse: 'maitre-de-guerre', dons: [] })
+  })
+
+  it('ne rattache pas quand il manque la sous-classe exigée à ce niveau', () => {
+    const clerc = xml(BASE.replace('<class>Guerrier</class>', '<class>Clerc</class>'))
+    expect(reglesDepuisAideDD(clerc, RATTACHEMENT)).toEqual({
+      demande: null, avertissements: [expect.stringMatching(/sous-classe/)],
+    })
+  })
+
+  it('signale une classe ou un don inconnus', () => {
+    expect(reglesDepuisAideDD(xml(BASE.replace('Guerrier', 'Pirate')), RATTACHEMENT).demande).toBeNull()
+    const avecDon = xml(BASE + '<lvl lvl="1"><feat>Danseur des lames</feat></lvl>')
+    expect(reglesDepuisAideDD(avecDon, RATTACHEMENT).avertissements).toEqual([expect.stringMatching(/Danseur des lames/)])
   })
 })

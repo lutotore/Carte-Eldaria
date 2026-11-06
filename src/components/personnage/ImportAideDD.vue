@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { api } from '../../api/client.js'
-import { differencesImport, ficheDepuisAideDD } from '../../domain/aideDD.js'
+import { differencesImport, ficheDepuisAideDD, reglesDepuisAideDD } from '../../domain/aideDD.js'
 import { ficheVierge } from '../../domain/personnage.js'
 import { utiliserEnvoi } from '../../composables/envoi.js'
 
@@ -9,6 +9,7 @@ import { utiliserEnvoi } from '../../composables/envoi.js'
  * Import d'un personnage exporté par aide-dd.org (fichier XML) : on lit le fichier dans le navigateur,
  * on montre ce qui va changer, et rien n'est enregistré avant que le joueur confirme.
  * Sans fiche existante, l'import la crée. La bourse, l'inventaire et les Marques du Rêve ne sont jamais touchés.
+ * Une fiche qui ne suit pas encore les règles du site y est rattachée quand la classe (et la sous-classe) sont reconnues.
  */
 const props = defineProps({
   campagneId: { type: String, required: true },
@@ -20,6 +21,9 @@ const { enCours, erreur, envoyer } = utiliserEnvoi()
 const ouvert = ref(false)
 const lecture = ref('')
 const import_ = ref(null)
+const texteXml = ref('')
+/** Ce que l'import fera côté règles : rattachement reconnu, ou pourquoi il n'aura pas lieu. Null si la fiche suit déjà les règles. */
+const regles = ref(null)
 
 const ficheActuelle = computed(() => props.personnage?.fiche ?? ficheVierge(''))
 /** Sur une fiche qui suit les règles, la montée de niveau garde la main sur la classe, le niveau et les dés de vie. */
@@ -46,14 +50,33 @@ async function choisir(evenement) {
     return
   }
   try {
-    import_.value = ficheDepuisAideDD(await fichier.text())
+    texteXml.value = await fichier.text()
+    import_.value = ficheDepuisAideDD(texteXml.value)
+    regles.value = await reglesPrevues()
   } catch (e) {
     lecture.value = e.message
   }
 }
 
+/** Seulement pour une fiche existante et libre : pour une fiche à créer, le rattachement se tente après la création. */
+async function reglesPrevues() {
+  if (!props.personnage || props.personnage.fiche.regles) return null
+  const { rattachement } = await api.reglesPersonnage(props.campagneId, props.personnage.id)
+  return rattachement ? reglesDepuisAideDD(texteXml.value, rattachement) : null
+}
+
+async function rattacherSiPossible(personnageId) {
+  if (props.personnage?.fiche.regles) return
+  const { rattachement } = await api.reglesPersonnage(props.campagneId, personnageId)
+  if (!rattachement) return
+  const { demande } = reglesDepuisAideDD(texteXml.value, rattachement)
+  if (demande) await api.rattacherAuxRegles(props.campagneId, personnageId, demande)
+}
+
 const annuler = () => {
   import_.value = null
+  regles.value = null
+  texteXml.value = ''
   lecture.value = ''
   ouvert.value = false
 }
@@ -63,6 +86,7 @@ const confirmer = () => envoyer(async () => {
   let personnageId = props.personnage?.id
   if (!personnageId) ({ personnageId } = await api.creerPersonnage(props.campagneId, champs.nom))
   await api.modifierPersonnage(props.campagneId, personnageId, champs)
+  await rattacherSiPossible(personnageId)
   annuler()
   emit('importe', personnageId)
 })
@@ -95,9 +119,13 @@ const confirmer = () => envoyer(async () => {
         </table>
         <ul class="avertissements">
           <li v-for="a in avertissements" :key="a">{{ a }}</li>
+          <li v-for="a in regles?.avertissements ?? []" :key="a">{{ a }}</li>
         </ul>
+        <p v-if="regles?.demande" class="rattachement">
+          La fiche suivra aussi les règles du site, pour monter de niveau ici.
+        </p>
         <div class="actions">
-          <button type="button" class="bouton bouton--plein" :disabled="enCours || differences.length === 0" @click="confirmer">
+          <button type="button" class="bouton bouton--plein" :disabled="enCours || (differences.length === 0 && !regles?.demande)" @click="confirmer">
             {{ personnage ? 'Remplacer ces champs' : 'Créer ma fiche depuis ce fichier' }}
           </button>
           <button type="button" class="lien-bouton" @click="annuler">Annuler</button>

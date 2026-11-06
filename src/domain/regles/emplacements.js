@@ -27,6 +27,15 @@ function niveauDeLanceur(lanceurs) {
   return lanceurs.reduce((total, lanceur) => total + part(lanceur), 0)
 }
 
+/** Le plus haut niveau de sort qu'une classe permet d'apprendre, d'après sa propre progression (comme si elle était seule). */
+export function niveauMaxDeSort(incantation, niveau) {
+  if (niveau < 1) return 0
+  if (incantation === 'pacte') return PACTE[niveau][1]
+  const diviseur = DIVISEURS[incantation]
+  if (!diviseur) return 0
+  return TABLE[niveauDeLanceur([{ niveau, diviseur, arrondiHaut: incantation === 'artificier' }])].length
+}
+
 export function emplacements(regles, catalogue) {
   const lanceurs = []
   let pacte = null

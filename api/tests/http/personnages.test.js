@@ -55,6 +55,7 @@ describe('montée de niveau par HTTP', () => {
     expect((await appel(cookieMax, 'POST', `${chemin}/montees`, { classe: 'roublard' })).statusCode).toBe(404)
     expect((await appel(cookieLea, 'POST', `${chemin}/montees`, { classe: 'roublard' })).statusCode).toBe(204)
     expect((await appel(cookieLea, 'GET', chemin)).json().fiche).toMatchObject({ niveau: 2, classe: 'Roublard 2' })
+    expect((await appel(cookieLea, 'PUT', `${chemin}/sorts/roublard`, { connus: [] })).statusCode).toBe(400)
     expect((await appel(cookieLea, 'DELETE', `${chemin}/montees/derniere`)).statusCode).toBe(204)
     expect((await appel(cookieLea, 'DELETE', `${chemin}/regles`)).statusCode).toBe(204)
     expect((await appel(cookieLea, 'GET', chemin)).json().fiche).toMatchObject({ niveau: 1, regles: null })

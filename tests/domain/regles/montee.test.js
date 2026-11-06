@@ -41,6 +41,22 @@ describe('rattacher une fiche existante aux règles', () => {
   })
 })
 
+describe('rattacher avec les dons déjà pris', () => {
+  it('les garde dans les règles, sans toucher aux PV', () => {
+    const fiche = rattacher({ ...ficheVierge('Ivan'), niveau: 4, pvMax: 40 }, { classe: 'guerrier', sousClasse: 'champion', dons: ['robuste'] }, cat)
+    expect(fiche.regles.choix).toEqual({ dons: ['robuste'] })
+    expect(fiche.pvMax).toBe(40)
+  })
+
+  it('refuse un don inconnu, ou pris deux fois s’il ne se répète pas', () => {
+    const fiche = { ...ficheVierge('Ivan'), niveau: 4 }
+    expect(erreurRattachement(fiche, { classe: 'guerrier', sousClasse: 'champion', dons: ['inconnu'] }, cat)).toMatch(/Don inconnu/)
+    expect(erreurRattachement(fiche, { classe: 'guerrier', sousClasse: 'champion', dons: ['robuste', 'robuste'] }, cat)).toMatch(/deux fois/)
+    expect(erreurRattachement(fiche, { classe: 'guerrier', sousClasse: 'champion', dons: 'robuste' }, cat)).toMatch(/Dons/)
+    expect(erreurRattachement(fiche, { classe: 'guerrier', sousClasse: 'champion', dons: ['adepte', 'adepte'] }, cat)).toBeNull()
+  })
+})
+
 describe('optionsDeMontee', () => {
   it('ne propose rien à une fiche qui n’est pas rattachée, ni au niveau 20', () => {
     expect(optionsDeMontee(ficheVierge('X'), cat)).toMatchObject({ possible: false, raison: expect.stringMatching(/classe/) })
@@ -57,7 +73,7 @@ describe('optionsDeMontee', () => {
 
   it('propose les sous-classes au bon niveau, avec ce que chacune apporte', () => {
     const options = optionsDeMontee(ficheDe('guerrier', 2), cat)
-    expect(options.sousClasse[0]).toEqual({ id: 'champion', nom: 'Champion', source: 'SRD 5.1', page: null, aptitudes: ['Critique amélioré'], choix: [] })
+    expect(options.sousClasse[0]).toEqual({ id: 'champion', nom: 'Champion', source: 'SRD 5.1', page: null, aptitudes: ['Critique amélioré'], choix: [], sorts: [] })
     expect(ids(options.sousClasse)).toEqual(['champion', 'chevalier-test'])
     expect(options.aptitudes).toEqual(['Archétype martial'])
   })

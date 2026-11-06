@@ -13,6 +13,39 @@ const SRD = 'SRD 5.1'
 
 const ASI = [4, 8, 12, 16, 19]
 
+/** Une valeur par niveau de classe, du niveau 1 au niveau 20, écrite par paliers : { 1: 2, 4: 3, 10: 4 }. */
+function paliers(seuils) {
+  let valeur = 0
+  return Array.from({ length: 20 }, (_, i) => {
+    valeur = seuils[i + 1] ?? valeur
+    return valeur
+  })
+}
+
+/**
+ * Sorts d'une classe : `mode` connus, prepares ou grimoire ; `tours` et `connus` par niveau (index 0 = niveau 1) ;
+ * `prepares` : « niveau » (mod. + niveau) ou « demi » (mod. + moitié du niveau) ; `secrets` : sorts pris dans n'importe quelle liste.
+ */
+const SORTS = {
+  barde: {
+    mode: 'connus', carac: 'cha', tours: paliers({ 1: 2, 4: 3, 10: 4 }),
+    connus: [4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 15, 16, 18, 19, 19, 20, 22, 22, 22], secrets: { 10: 2, 14: 2, 18: 2 },
+  },
+  clerc: { mode: 'prepares', carac: 'sag', tours: paliers({ 1: 3, 4: 4, 10: 5 }), prepares: 'niveau' },
+  druide: { mode: 'prepares', carac: 'sag', tours: paliers({ 1: 2, 4: 3, 10: 4 }), prepares: 'niveau' },
+  ensorceleur: {
+    mode: 'connus', carac: 'cha', tours: paliers({ 1: 4, 4: 5, 10: 6 }),
+    connus: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 13, 14, 14, 15, 15, 15, 15],
+  },
+  magicien: { mode: 'grimoire', carac: 'int', tours: paliers({ 1: 3, 4: 4, 10: 5 }), prepares: 'niveau', grimoire: { depart: 6, parNiveau: 2 } },
+  occultiste: {
+    mode: 'connus', carac: 'cha', tours: paliers({ 1: 2, 4: 3, 10: 4 }),
+    connus: [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15], arcanum: { 11: 6, 13: 7, 15: 8, 17: 9 },
+  },
+  paladin: { mode: 'prepares', carac: 'cha', tours: paliers({}), prepares: 'demi' },
+  rodeur: { mode: 'connus', carac: 'sag', tours: paliers({}), connus: [0, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11] },
+}
+
 const COMPETENCES_RODEUR = ['athletisme', 'discretion', 'dressage', 'investigation', 'nature', 'perception', 'perspicacite', 'survie']
 const COMPETENCES_ROUBLARD = ['acrobaties', 'athletisme', 'discretion', 'escamotage', 'intimidation', 'investigation', 'perception',
   'perspicacite', 'persuasion', 'representation', 'tromperie']
@@ -129,6 +162,7 @@ export const ELEMENTS_SRD = [
   {
     type: 'classe', id: 'barde', nom: 'Barde', source: SRD, de: 8, sauvegardes: ['dex', 'cha'], incantation: 'complet',
     multiclasse: { prerequis: [{ cha: 13 }], maitrises: 'armures légères, un instrument de musique', choix: [{ type: 'competences', nombre: 1 }] },
+    sorts: SORTS.barde,
     niveauSousClasse: 3, ameliorations: ASI,
     aptitudes: {
       1: ['Incantation', 'Inspiration bardique (d6)'], 2: ['Touche-à-tout', 'Chant reposant (d6)'], 3: ['Collège bardique', 'Expertise'],
@@ -140,12 +174,14 @@ export const ELEMENTS_SRD = [
   },
   {
     type: 'sous-classe', id: 'savoir', classe: 'barde', nom: 'Collège du savoir', source: SRD,
+    sorts: { secrets: { 6: 2 } }, // Secrets magiques supplémentaires : deux sorts de plus, pris dans n'importe quelle liste.
     aptitudes: { 3: ['Compétences supplémentaires', 'Mots cinglants'], 6: ['Secrets magiques supplémentaires'], 14: ['Compétence hors pair'] },
     choix: { 3: [{ type: 'competences', nombre: 3 }] },
   },
   {
     type: 'classe', id: 'clerc', nom: 'Clerc', source: SRD, de: 8, sauvegardes: ['sag', 'cha'], incantation: 'complet',
     multiclasse: { prerequis: [{ sag: 13 }], maitrises: 'armures légères et intermédiaires, boucliers' },
+    sorts: SORTS.clerc,
     niveauSousClasse: 1, ameliorations: ASI,
     aptitudes: {
       1: ['Incantation', 'Domaine divin'], 2: ['Conduit divin (1 par repos)', 'Renvoi des morts-vivants'],
@@ -164,6 +200,7 @@ export const ELEMENTS_SRD = [
   {
     type: 'classe', id: 'druide', nom: 'Druide', source: SRD, de: 8, sauvegardes: ['int', 'sag'], incantation: 'complet',
     multiclasse: { prerequis: [{ sag: 13 }], maitrises: 'armures légères et intermédiaires, boucliers (sans métal)' },
+    sorts: SORTS.druide,
     niveauSousClasse: 2, ameliorations: ASI,
     aptitudes: {
       1: ['Druidique', 'Incantation'], 2: ['Forme sauvage', 'Cercle druidique'], 4: ['Forme sauvage améliorée (FP 1/2, sans vol)'],
@@ -181,6 +218,7 @@ export const ELEMENTS_SRD = [
   {
     type: 'classe', id: 'ensorceleur', nom: 'Ensorceleur', source: SRD, de: 6, sauvegardes: ['con', 'cha'], incantation: 'complet',
     multiclasse: { prerequis: [{ cha: 13 }], maitrises: '' },
+    sorts: SORTS.ensorceleur,
     niveauSousClasse: 1, ameliorations: ASI,
     aptitudes: {
       1: ['Incantation', 'Origine magique'], 2: ['Source de magie'], 3: ['Métamagie'], 10: ['Métamagie'], 17: ['Métamagie'],
@@ -213,6 +251,7 @@ export const ELEMENTS_SRD = [
   {
     type: 'classe', id: 'magicien', nom: 'Magicien', source: SRD, de: 6, sauvegardes: ['int', 'sag'], incantation: 'complet',
     multiclasse: { prerequis: [{ int: 13 }], maitrises: '' },
+    sorts: SORTS.magicien,
     niveauSousClasse: 2, ameliorations: ASI,
     aptitudes: { 1: ['Incantation', 'Restauration arcanique'], 2: ['Tradition arcanique'], 18: ['Maîtrise des sorts'], 20: ['Sorts de prédilection'] },
   },
@@ -238,6 +277,7 @@ export const ELEMENTS_SRD = [
   {
     type: 'classe', id: 'occultiste', nom: 'Occultiste', source: SRD, de: 8, sauvegardes: ['sag', 'cha'], incantation: 'pacte',
     multiclasse: { prerequis: [{ cha: 13 }], maitrises: 'armures légères, armes courantes' },
+    sorts: SORTS.occultiste,
     niveauSousClasse: 1, ameliorations: ASI,
     aptitudes: {
       1: ['Patron d’outre-monde', 'Magie de pacte'], 2: ['Manifestations occultes (2)'], 3: ['Faveur de pacte'],
@@ -259,6 +299,7 @@ export const ELEMENTS_SRD = [
   {
     type: 'classe', id: 'paladin', nom: 'Paladin', source: SRD, de: 10, sauvegardes: ['sag', 'cha'], incantation: 'demi',
     multiclasse: { prerequis: [{ for: 13, cha: 13 }], maitrises: 'armures légères et intermédiaires, boucliers, armes courantes, armes de guerre' },
+    sorts: SORTS.paladin,
     niveauSousClasse: 3, ameliorations: ASI,
     aptitudes: {
       1: ['Sens divin', 'Imposition des mains'], 2: ['Style de combat', 'Incantation', 'Châtiment divin'], 3: ['Santé divine', 'Serment sacré'],
@@ -277,6 +318,7 @@ export const ELEMENTS_SRD = [
       prerequis: [{ dex: 13, sag: 13 }], maitrises: 'armures légères et intermédiaires, boucliers, armes courantes, armes de guerre',
       choix: [{ type: 'competences', nombre: 1, parmi: COMPETENCES_RODEUR }],
     },
+    sorts: SORTS.rodeur,
     niveauSousClasse: 3, ameliorations: ASI,
     aptitudes: {
       1: ['Ennemi juré', 'Explorateur-né'], 2: ['Style de combat', 'Incantation'], 3: ['Archétype de rôdeur', 'Vigilance primitive'],

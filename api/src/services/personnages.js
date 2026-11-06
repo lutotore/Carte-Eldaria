@@ -6,6 +6,8 @@ import { creerCatalogue } from '../../../src/domain/regles/catalogue.js'
 import {
   annulerDerniereMontee, appliquerMontee, classesPossibles, erreurMontee, erreurRattachement, optionsDeMontee, rattacher,
 } from '../../../src/domain/regles/montee.js'
+import { resumeDesRegles } from '../../../src/domain/regles/resume.js'
+import { appliquerSorts, erreurSorts, etatDesSorts } from '../../../src/domain/regles/sorts.js'
 import { ELEMENTS_SRD } from '../../../src/domain/regles/srd.js'
 import { erreurs, ErreurMetier } from '../domaine/erreurs.js'
 import { estMj } from '../domaine/roles.js'
@@ -188,6 +190,10 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
         estMj: pourMj,
         fiche,
         calculs: calculs(fiche),
+        // Aptitudes, choix, dons et emplacements d'après les règles ; null pour une fiche libre.
+        regles: fiche.regles ? resumeDesRegles(fiche, catalogueRegles()) : null,
+        // Pour chaque classe qui lance des sorts : limites, options et sélection.
+        sorts: etatDesSorts(fiche, catalogueRegles()),
         bourse: personnage.bourse,
         inventaire: inventaireLu(personnage, demandeurId, pourMj),
         marques: persos.marques.du(personnage.id),
@@ -217,7 +223,8 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
           id: c.id, nom: c.nom, niveauSousClasse: c.niveauSousClasse,
           sousClasses: regles.sousClassesDe(c.id).map((s) => ({ id: s.id, nom: s.nom })),
         }))
-        return { rattachement: { niveau: fiche.niveau, classes } }
+        const dons = regles.dons().map((d) => ({ id: d.id, nom: d.nom }))
+        return { rattachement: { niveau: fiche.niveau, classes, dons } }
       }
       const derniere = fiche.regles.montees.at(-1)
       return {
@@ -228,10 +235,10 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
     },
 
     /** Une classe (`classe`, `sousClasse`) ou, pour une fiche déjà multiclassée, `classes: [{ classe, niveau, sousClasse }]`. */
-    rattacherAuxRegles({ demandeurId, campagneId, personnageId, classe, sousClasse = null, classes }) {
+    rattacherAuxRegles({ demandeurId, campagneId, personnageId, classe, sousClasse = null, classes, dons = [] }) {
       const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
       const fiche = ficheComplete(personnage)
-      const demande = Array.isArray(classes) ? { classes } : { classe, sousClasse }
+      const demande = { ...(Array.isArray(classes) ? { classes } : { classe, sousClasse }), dons }
       const regles = catalogueRegles()
       exigerSansErreur(erreurRattachement(fiche, demande, regles))
       ecrireFiche(personnage, rattacher(fiche, demande, regles))
@@ -254,6 +261,16 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
       const fiche = ficheComplete(personnage)
       exiger(fiche.regles?.montees.length, erreurs.requeteInvalide('Aucune montée de niveau faite sur le site à annuler.'))
       ecrireFiche(personnage, annulerDerniereMontee(fiche, catalogueRegles()))
+    },
+
+    /** Tours de magie, sorts connus, grimoire, sorts préparés ou arcanums d'une classe : vérifiés par les règles. */
+    choisirSorts({ demandeurId, campagneId, personnageId, classe, selection }) {
+      const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
+      const fiche = ficheComplete(personnage)
+      exiger(fiche.regles, erreurs.requeteInvalide('Ta fiche ne suit pas les règles du site : note tes sorts sur la fiche.'))
+      const regles = catalogueRegles()
+      exigerSansErreur(erreurSorts(fiche, classe, selection, regles))
+      ecrireFiche(personnage, appliquerSorts(fiche, classe, selection))
     },
 
     /** La fiche redevient libre : on peut à nouveau tout y écrire à la main. */

@@ -202,3 +202,50 @@ export function differencesImport(fiche, champs) {
     .map(([cle, valeur]) => ({ cle, libelle: LIBELLES[cle] ?? cle, avant: lisible(cle, fiche[cle]), apres: lisible(cle, valeur) }))
     .filter((d) => d.avant !== d.apres)
 }
+
+/** aide-dd ne nomme pas toujours les dons comme le Livre du joueur : nom aide-dd → id des règles du site. */
+const ALIAS_DONS = {
+  'maitre des armes a deux mains': 'grand-maitre-armes',
+  empoigneur: 'lutteur',
+  'expert en arbalete': 'maitre-arbaletrier',
+  'maitre du bouclier': 'specialiste-boucliers',
+  'maitre des armes d hast': 'specialiste-armes-hast',
+  'maitre des armures lourdes': 'specialiste-armures-lourdes',
+  'maitre des armures intermediaires': 'specialiste-armures-intermediaires',
+  'lanceur de rituels': 'ritualiste',
+  'esprit vif': 'esprit-affute',
+  'bagarreur de taverne': 'bagarreur',
+  'adepte elementaire': 'adepte-elements',
+  charge: 'expert-charge',
+}
+
+/** Pour comparer des noms : sans accents, sans casse, apostrophes et espaces unifiés. */
+const cleDeNom = (texte) => normaliser(texte).replace(/['’]/g, ' ').replace(/\s+/g, ' ').trim()
+
+/**
+ * De quoi rattacher aux règles du site la fiche lue dans un export aide-dd : classe, sous-classe et dons reconnus
+ * parmi ceux que propose le serveur (`rattachement`). `demande` vaut null quand on ne peut pas rattacher sans aide.
+ */
+export function reglesDepuisAideDD(texte, rattachement) {
+  const lu = lireXmlAideDD(texte)
+  const niveau = Math.min(20, Math.max(1, entier(lu.level, 1)))
+  const [, nomClasse = '', nomSousClasse = ''] = (lu.class ?? '').trim().match(/^([^(]*?)\s*(?:\((.*)\))?$/) ?? []
+  const classe = rattachement.classes.find((c) => cleDeNom(c.nom) === cleDeNom(nomClasse))
+  if (!classe) return { demande: null, avertissements: [`Classe « ${nomClasse} » inconnue des règles du site : rattache la fiche à la main.`] }
+
+  const sousClasse = nomSousClasse
+    ? classe.sousClasses.find((s) => cleDeNom(s.nom) === cleDeNom(nomSousClasse) || cleDeNom(s.nom).endsWith(cleDeNom(nomSousClasse)))
+    : null
+  if (niveau >= classe.niveauSousClasse && !sousClasse) {
+    return { demande: null, avertissements: ['Le fichier ne dit pas la sous-classe : choisis-la dans « Suivre les règles du site ».'] }
+  }
+
+  const avertissements = []
+  const dons = []
+  for (const nom of niveauxJusqua(lu, niveau).map((n) => n.feat).filter((d) => d && d !== '-1')) {
+    const id = rattachement.dons.find((d) => cleDeNom(d.nom) === cleDeNom(nom))?.id ?? ALIAS_DONS[cleDeNom(nom)]
+    if (id && rattachement.dons.some((d) => d.id === id)) dons.push(id)
+    else avertissements.push(`Don « ${nom} » non reconnu par les règles du site : note-le sur la fiche.`)
+  }
+  return { demande: { classe: classe.id, sousClasse: sousClasse?.id ?? null, dons }, avertissements }
+}

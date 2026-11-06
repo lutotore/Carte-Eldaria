@@ -2,12 +2,14 @@
 import { onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { api } from '../api/client.js'
+import AptitudesRegles from '../components/personnage/AptitudesRegles.vue'
 import BoursePersonnage from '../components/personnage/BoursePersonnage.vue'
 import FichePersonnage from '../components/personnage/FichePersonnage.vue'
 import ImportAideDD from '../components/personnage/ImportAideDD.vue'
 import InventairePersonnage from '../components/personnage/InventairePersonnage.vue'
 import MarquesDuReve from '../components/personnage/MarquesDuReve.vue'
 import MonteeDeNiveau from '../components/personnage/MonteeDeNiveau.vue'
+import SortsPersonnage from '../components/personnage/SortsPersonnage.vue'
 import { utiliserEnvoi } from '../composables/envoi.js'
 
 /**
@@ -85,6 +87,8 @@ const supprimer = () => envoyer(async () => {
       <ImportAideDD :campagne-id="id" :personnage="personnage" @importe="apresImport" />
       <MonteeDeNiveau :campagne-id="id" :personnage="personnage" @recharger="recharger" />
       <FichePersonnage :campagne-id="id" :personnage="personnage" @recharger="recharger" />
+      <AptitudesRegles v-if="personnage.regles" :regles="personnage.regles" />
+      <SortsPersonnage v-if="personnage.sorts?.length" :campagne-id="id" :personnage="personnage" @recharger="recharger" />
       <div class="annexes">
         <div class="pile">
           <BoursePersonnage :campagne-id="id" :personnage-id="personnage.id" :bourse="personnage.bourse" @recharger="recharger" />

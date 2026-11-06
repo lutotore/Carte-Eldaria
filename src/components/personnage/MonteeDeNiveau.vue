@@ -128,8 +128,9 @@ const apres = (action) => envoyer(async () => {
   emit('recharger')
 })
 
-const rattacher = () => apres(() => api.rattacherAuxRegles(props.campagneId, props.personnage.id,
-  lignes.value.map((l) => ({ classe: l.classe, niveau: Number(l.niveau), sousClasse: demandeSousClasse(l) ? l.sousClasse || null : null }))))
+const rattacher = () => apres(() => api.rattacherAuxRegles(props.campagneId, props.personnage.id, {
+  classes: lignes.value.map((l) => ({ classe: l.classe, niveau: Number(l.niveau), sousClasse: demandeSousClasse(l) ? l.sousClasse || null : null })),
+}))
 const monter = () => apres(() => api.monterDeNiveau(props.campagneId, props.personnage.id, demande()))
 const annuler = () => apres(() => api.annulerMontee(props.campagneId, props.personnage.id))
 const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props.personnage.id))
@@ -216,7 +217,8 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
             <label v-for="s in options.sousClasse" :key="s.id" class="option">
               <input v-model="sousClasse" type="radio" name="sous-classe" :value="s.id" required @change="choix = {}">
               <span><strong>{{ s.nom }}</strong> <small>({{ reference(s) }})</small>
-                <span v-if="s.aptitudes.length" class="details">{{ s.aptitudes.join(', ') }}</span></span>
+                <span v-if="s.aptitudes.length" class="details">{{ s.aptitudes.join(', ') }}</span>
+              <span v-if="s.sorts?.length" class="details">Sorts : {{ s.sorts.join(', ') }} (à choisir ensuite dans le panneau Sorts)</span></span>
             </label>
           </fieldset>
 

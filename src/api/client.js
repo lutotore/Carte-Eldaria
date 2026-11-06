@@ -96,9 +96,11 @@ export const api = {
   supprimerLigne: (campagneId, personnageId, ligneId) => appeler('DELETE', `/api/campagnes/${campagneId}/personnages/${personnageId}/inventaire/${ligneId}`),
   reglesPersonnage: (campagneId, personnageId, classe = null) => appeler('GET',
     `/api/campagnes/${campagneId}/personnages/${personnageId}/regles${classe ? `?classe=${encodeURIComponent(classe)}` : ''}`),
-  rattacherAuxRegles: (campagneId, personnageId, classes) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/regles`, { classes }),
+  /** `demande` : { classes: [{ classe, niveau, sousClasse }] } ou { classe, sousClasse }, avec les dons déjà pris (`dons`). */
+  rattacherAuxRegles: (campagneId, personnageId, demande) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/regles`, demande),
   detacherDesRegles: (campagneId, personnageId) => appeler('DELETE', `/api/campagnes/${campagneId}/personnages/${personnageId}/regles`),
   monterDeNiveau: (campagneId, personnageId, demande) => appeler('POST', `/api/campagnes/${campagneId}/personnages/${personnageId}/montees`, demande),
+  choisirSorts: (campagneId, personnageId, classe, selection) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/sorts/${classe}`, selection),
   annulerMontee: (campagneId, personnageId) => appeler('DELETE', `/api/campagnes/${campagneId}/personnages/${personnageId}/montees/derniere`),
   ajouterMarque: (campagneId, personnageId, marque) => appeler('POST', `/api/campagnes/${campagneId}/personnages/${personnageId}/marques`, marque),
   modifierMarque: (campagneId, personnageId, marqueId, marque) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/marques/${marqueId}`, marque),
