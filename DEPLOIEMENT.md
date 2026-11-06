@@ -1,5 +1,5 @@
 # Mettre le portail en ligne sur le VPS
-
+powershell -ExecutionPolicy Bypass -File mj\fantasy-grounds\installer-module.ps1
 Prérequis, déjà faits : VPS Ubuntu sécurisé (clé SSH, ufw 22/80/443, fail2ban), Docker et Docker Compose installés,
 sous-domaine qui pointe vers l'IP du VPS (enregistrements A et AAAA).
 
