@@ -120,6 +120,7 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
 </script>
 
 <template>
+  <p v-if="!etat && erreur" class="message message--erreur" role="alert">Montée de niveau indisponible : {{ erreur }}</p>
   <section v-if="etat" class="montee papier" aria-labelledby="titre-montee">
     <!-- Fiche libre : on la rattache aux règles -->
     <template v-if="rattachement">
