@@ -46,10 +46,11 @@ export function routesPersonnages(api, portail) {
   })
 
   // --- Règles et montée de niveau ---
-  api.get('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request) => portail.optionsMontee(perso(request)))
+  api.get('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request) => (
+    portail.optionsMontee({ ...perso(request), classe: typeof request.query?.classe === 'string' ? request.query.classe : null })))
   api.put('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request, reply) => {
-    const { classe, sousClasse } = corps(request)
-    portail.rattacherAuxRegles({ ...perso(request), classe, sousClasse })
+    const { classe, sousClasse, classes } = corps(request)
+    portail.rattacherAuxRegles({ ...perso(request), classe, sousClasse, classes })
     return sansContenu(reply)
   })
   api.delete('/api/campagnes/:id/personnages/:personnageId/regles', connecte, async (request, reply) => {

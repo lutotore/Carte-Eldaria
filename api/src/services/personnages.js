@@ -3,7 +3,9 @@ import {
 } from '../../../src/domain/butins.js'
 import { calculs, erreurBourse, erreurChamps, erreurLigne, ficheVierge, PIECES } from '../../../src/domain/personnage.js'
 import { creerCatalogue } from '../../../src/domain/regles/catalogue.js'
-import { annulerDerniereMontee, appliquerMontee, erreurMontee, erreurRattachement, optionsDeMontee, rattacher } from '../../../src/domain/regles/montee.js'
+import {
+  annulerDerniereMontee, appliquerMontee, classesPossibles, erreurMontee, erreurRattachement, optionsDeMontee, rattacher,
+} from '../../../src/domain/regles/montee.js'
 import { ELEMENTS_SRD } from '../../../src/domain/regles/srd.js'
 import { erreurs, ErreurMetier } from '../domaine/erreurs.js'
 import { estMj } from '../domaine/roles.js'
@@ -201,8 +203,11 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
     },
 
     // --- Montée de niveau : le moteur de règles décide, la fiche n'est écrite qu'après ---
-    /** Ce que la fiche peut faire : se rattacher aux règles, ou monter d'un niveau (et annuler la dernière montée). */
-    optionsMontee({ demandeurId, campagneId, personnageId }) {
+    /**
+     * Ce que la fiche peut faire : se rattacher aux règles, ou monter d'un niveau (et annuler la dernière montée).
+     * `classe` : la classe où prendre le niveau ; par défaut la première suivie.
+     */
+    optionsMontee({ demandeurId, campagneId, personnageId, classe = null }) {
       const fiche = ficheComplete(exigerAcces(demandeurId, campagneId, personnageId).personnage)
       if (!fiche.regles) {
         const classes = regles.classes().map((c) => ({
@@ -212,13 +217,18 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
         return { rattachement: { niveau: fiche.niveau, classes } }
       }
       const derniere = fiche.regles.montees.at(-1)
-      return { options: optionsDeMontee(fiche, regles), annulable: derniere ? { niveau: derniere.niveau, classe: derniere.classe } : null }
+      return {
+        options: optionsDeMontee(fiche, regles, classe ?? fiche.regles.classes[0].classe),
+        classes: classesPossibles(fiche, regles),
+        annulable: derniere ? { niveau: derniere.niveau, classe: derniere.classe } : null,
+      }
     },
 
-    rattacherAuxRegles({ demandeurId, campagneId, personnageId, classe, sousClasse = null }) {
+    /** Une classe (`classe`, `sousClasse`) ou, pour une fiche déjà multiclassée, `classes: [{ classe, niveau, sousClasse }]`. */
+    rattacherAuxRegles({ demandeurId, campagneId, personnageId, classe, sousClasse = null, classes }) {
       const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
       const fiche = ficheComplete(personnage)
-      const demande = { classe, sousClasse }
+      const demande = Array.isArray(classes) ? { classes } : { classe, sousClasse }
       exigerSansErreur(erreurRattachement(fiche, demande, regles))
       ecrireFiche(personnage, rattacher(fiche, demande, regles))
     },
