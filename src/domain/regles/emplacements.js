@@ -26,8 +26,9 @@ function niveauDeLanceur(lanceurs) {
 export function emplacements(regles, catalogue) {
   const lanceurs = []
   let pacte = null
-  for (const { classe, niveau } of regles.classes) {
-    const incantation = catalogue.classe(classe)?.incantation
+  for (const { classe, niveau, sousClasse } of regles.classes) {
+    // Certaines sous-classes lancent des sorts quand leur classe n'en lance pas (Chevalier occulte, Arnaqueur arcanique).
+    const incantation = catalogue.classe(classe)?.incantation ?? (sousClasse ? catalogue.sousClasse(classe, sousClasse)?.incantation : null)
     if (incantation === 'pacte') {
       const [nombre, niveauSort] = PACTE[niveau]
       pacte = { nombre, niveau: niveauSort }

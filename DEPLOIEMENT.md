@@ -251,6 +251,26 @@ rm /tmp/chrono.json
 
 N'importe le même fichier qu'une fois : un second import ajouterait les événements en double.
 
+## Importer les règles d'un livre (montée de niveau)
+
+Le site connaît d'office les règles du SRD (12 classes, une sous-classe chacune, le don Lutteur).
+Les autres livres que tu possèdes s'ajoutent depuis un fichier de `mj/`, par exemple `regles-phb.json` (Livre du joueur) :
+`{ "livre": "Livre du joueur", "elements": [ … ] }`. Ce contenu ne va **jamais** dans le dépôt : il vit seulement dans la base du serveur.
+
+```powershell
+scp mj/regles-phb.json eldaria:/tmp/regles.json
+```
+
+```bash
+cd /opt/eldaria
+docker compose exec -T api npm run -s cli -- importer-regles < /tmp/regles.json
+docker compose exec -T api npm run -s cli -- livres-regles
+rm /tmp/regles.json
+```
+
+Réimporter un livre **remplace** tous ses éléments : tu peux corriger le fichier et le renvoyer autant de fois que tu veux.
+Le fichier est vérifié en entier avant d'écrire quoi que ce soit (sous-classe d'une classe inconnue, liste d'options manquante…).
+
 ## Commandes utiles
 
 | Besoin | Commande (dans `/opt/eldaria`) |

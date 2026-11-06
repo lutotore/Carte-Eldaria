@@ -142,7 +142,7 @@ function decrireChoix(choix, fiche, niveauClasse, catalogue) {
   if (choix.type === 'competences') {
     const options = COMPETENCES.filter((c) => !competences[c.cle] && (!choix.parmi || choix.parmi.includes(c.cle))).map((c) => ({ id: c.cle, nom: c.nom }))
     const libelle = choix.parmi ? 'Compétence' : 'Compétences supplémentaires'
-    return { cle: 'competences', type: 'competences', libelle, nombre, options }
+    return { cle: 'competences', type: 'competences', libelle, nombre, options, ...(choix.expertise ? { expertise: true } : {}) }
   }
   const liste = catalogue.liste(choix.liste)
   // Un style de combat déjà pris dans une autre classe ne se reprend pas : les listes d'un même groupe se partagent leurs choix.
@@ -154,17 +154,24 @@ function decrireChoix(choix, fiche, niveauClasse, catalogue) {
   return { cle: liste.id, type: 'liste', libelle: liste.nom, nombre, options }
 }
 
+const exigence = ([cle, min]) => `${nomCarac(cle)} ${min}`
+
 function raisonDonIndisponible(don, fiche) {
   if (!don.repetable && (fiche.regles.choix.dons ?? []).includes(don.id)) return 'Tu as déjà ce don.'
-  const manque = Object.entries(don.prerequis?.caracs ?? {}).find(([cle, min]) => fiche.caracteristiques[cle] < min)
-  return manque ? `${nomCarac(manque[0])} ${manque[1]} requise.` : null
+  const { caracs = {}, caracsUneDe = null } = don.prerequis ?? {}
+  const atteint = ([cle, min]) => fiche.caracteristiques[cle] >= min
+  const manque = Object.entries(caracs).find((e) => !atteint(e))
+  if (manque) return `${exigence(manque)} requise.`
+  if (caracsUneDe && !Object.entries(caracsUneDe).some(atteint)) return `${Object.entries(caracsUneDe).map(exigence).join(' ou ')} requise.`
+  return null
 }
 
-function decrireDon(don, fiche) {
+/** Un don : ses prérequis (ceux que le site ne peut pas vérifier sont seulement rappelés) et ses propres choix. */
+function decrireDon(don, fiche, decrire) {
   const raison = raisonDonIndisponible(don, fiche)
   return {
-    id: don.id, nom: don.nom, source: don.source, resume: don.resume ?? '', amelioration: don.amelioration ?? null,
-    disponible: !raison, raison,
+    id: don.id, nom: don.nom, source: don.source, page: don.page ?? null, resume: don.resume ?? '', amelioration: don.amelioration ?? null,
+    disponible: !raison, raison, aVerifier: don.prerequis?.note ?? null, choix: decrire(don.choix ?? []),
   }
 }
 
@@ -210,14 +217,14 @@ export function optionsDeMontee(fiche, catalogue, classeId = fiche.regles?.class
     ],
     sousClasse: niveauClasse === classe.niveauSousClasse
       ? catalogue.sousClassesDe(classeId).map((s) => ({
-        id: s.id, nom: s.nom, source: s.source, aptitudes: auNiveau(s.aptitudes, niveauClasse), choix: choix(auNiveau(s.choix, niveauClasse)),
+        id: s.id, nom: s.nom, source: s.source, page: s.page ?? null, aptitudes: auNiveau(s.aptitudes, niveauClasse), choix: choix(auNiveau(s.choix, niveauClasse)),
       }))
       : null,
     amelioration: classe.ameliorations.includes(niveauClasse)
-      ? { caracs: { ...fiche.caracteristiques }, dons: catalogue.dons().map((d) => decrireDon(d, fiche)) }
+      ? { caracs: { ...fiche.caracteristiques }, dons: catalogue.dons().map((d) => decrireDon(d, fiche, choix)) }
       : null,
     choix: lierExpertise(choix([...(entree?.choix ?? []), ...auNiveau(classe.choix, niveauClasse), ...auNiveau(sousClasse?.choix, niveauClasse)])),
-    aVenir: classe.incantation ? ['Sorts appris et préparés : note-les sur la fiche, le site ne gère pas encore les sorts.'] : [],
+    aVenir: (classe.incantation ?? sousClasse?.incantation) ? ['Sorts appris et préparés : note-les sur la fiche, le site ne gère pas encore les sorts.'] : [],
   }
 }
 
@@ -262,7 +269,11 @@ function erreurSousClasse(sousClasse, options) {
 }
 
 /** Les choix à faire : ceux de la classe et de la sous-classe actuelle, plus ceux de la sous-classe choisie maintenant. */
-const choixAttendus = (options, sousClasse) => lierExpertise([...options.choix, ...(options.sousClasse?.find((s) => s.id === sousClasse)?.choix ?? [])])
+const choixAttendus = (options, { sousClasse = null, amelioration = null }) => lierExpertise([
+  ...options.choix,
+  ...(options.sousClasse?.find((s) => s.id === sousClasse)?.choix ?? []),
+  ...(options.amelioration?.dons.find((d) => d.id === amelioration?.don)?.choix ?? []),
+])
 
 function erreurChoix(choix, attendus) {
   if (!estObjet(choix)) return 'Choix invalides.'
@@ -287,7 +298,7 @@ export function erreurMontee(fiche, demande, catalogue) {
   const { sousClasse = null, amelioration = null, choix = {} } = demande
   return erreurSousClasse(sousClasse, options)
     ?? erreurAmelioration(amelioration, options, fiche, catalogue)
-    ?? erreurChoix(choix, choixAttendus(options, sousClasse))
+    ?? erreurChoix(choix, choixAttendus(options, demande))
 }
 
 // --- Appliquer, annuler ---
@@ -299,7 +310,7 @@ function ajouterCaracs(caracteristiques, ajouts, signe = 1) {
 }
 
 /** Les compétences changées par l'expertise et les compétences supplémentaires, et leur niveau d'avant. */
-function nouvellesCompetences(competences, choix) {
+function nouvellesCompetences(competences, choix, { expertiseDirecte = false } = {}) {
   const resultat = { ...competences }
   const avant = {}
   const changer = (cle, niveau) => {
@@ -307,7 +318,7 @@ function nouvellesCompetences(competences, choix) {
     resultat[cle] = niveau
   }
   // Les nouvelles compétences d'abord : l'expertise peut porter sur l'une d'elles.
-  for (const id of choix.competences ?? []) changer(id, 1)
+  for (const id of choix.competences ?? []) changer(id, expertiseDirecte ? 2 : 1)
   for (const id of choix.expertise ?? []) if (COMPETENCES.some((c) => c.cle === id)) changer(id, 2)
   return { competences: resultat, avant }
 }
@@ -357,12 +368,17 @@ export function appliquerMontee(fiche, demande, catalogue) {
   const caracs = amelioration?.caracs ?? {}
   const choix = demande.choix ?? {}
 
+  const attendus = choixAttendus(optionsDeMontee(fiche, catalogue, classe.id), demande)
   const caracteristiques = ajouterCaracs(fiche.caracteristiques, caracs)
-  const { competences, avant } = nouvellesCompetences(fiche.competences, choix)
+  const expertiseDirecte = Boolean(attendus.find((c) => c.cle === 'competences')?.expertise)
+  const { competences, avant } = nouvellesCompetences(fiche.competences, choix, { expertiseDirecte })
+  // Résistant : la sauvegarde de la caractéristique augmentée, si elle n'était pas déjà maîtrisée.
+  const carac = Object.keys(caracs)[0]
+  const sauvegarde = don?.sauvegarde && !fiche.sauvegardes.includes(carac) ? carac : null
   const pv = pvGagnes({ fiche, classe, suivie, sousClasseChoisie, don, caracteristiques, catalogue })
   const montee = {
     classe: classe.id, niveau: niveauTotal(regles) + 1, pv, sousClasse: sousClasseChoisie,
-    caracs: { ...caracs }, don: don?.id ?? null, choix: copieDesChoix(choix), competences: avant,
+    caracs: { ...caracs }, don: don?.id ?? null, sauvegarde, choix: copieDesChoix(choix), competences: avant,
   }
   const nouvellesRegles = {
     classes: suivie
@@ -373,7 +389,7 @@ export function appliquerMontee(fiche, demande, catalogue) {
     montees: [...regles.montees, montee],
   }
   return synchroniser({
-    ...fiche, caracteristiques, competences, pvMax: fiche.pvMax + pv, pvActuels: fiche.pvActuels + pv, regles: nouvellesRegles,
+    ...fiche, caracteristiques, competences, sauvegardes: sauvegarde ? [...fiche.sauvegardes, sauvegarde] : fiche.sauvegardes, pvMax: fiche.pvMax + pv, pvActuels: fiche.pvActuels + pv, regles: nouvellesRegles,
   }, catalogue)
 }
 
@@ -399,6 +415,7 @@ export function annulerDerniereMontee(fiche, catalogue) {
     ...fiche,
     caracteristiques: ajouterCaracs(fiche.caracteristiques, montee.caracs, -1),
     competences,
+    sauvegardes: montee.sauvegarde ? fiche.sauvegardes.filter((s) => s !== montee.sauvegarde) : fiche.sauvegardes,
     pvMax: fiche.pvMax - montee.pv,
     pvActuels: fiche.pvActuels - montee.pv,
     regles: nouvellesRegles,

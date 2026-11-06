@@ -16,6 +16,9 @@ const AIDE = `Commandes disponibles :
                                  ajoute les PNJ du fichier JSON (ou de l'entrée standard) à la bibliothèque, tous cachés
   importer-evenements <n° campagne> [fichier]
                                  ajoute au calendrier les événements du fichier JSON (ou de l'entrée standard), tous cachés
+  importer-regles [fichier]      ajoute ou remplace les règles d'un livre (classes, sous-classes, dons)
+                                 depuis un fichier JSON de mj/ (ou l'entrée standard)
+  livres-regles                  liste les livres de règles importés
   reinitialiser <identifiant>    affiche un lien pour choisir un nouveau mot de passe
   purger                         efface les sessions et liens périmés`
 
@@ -46,6 +49,18 @@ export async function executerCommande([commande, argument, fichier], { portail,
       const texte = fichier ? await lireFichier(fichier) : await lireEntree()
       const { nombre } = portail.importerEvenements(Number(argument), JSON.parse(texte))
       ecrire(`${nombre} événement(s) importé(s), tous cachés, dans le calendrier de la campagne n° ${argument}.`)
+      return
+    }
+    case 'importer-regles': {
+      const texte = argument ? await lireFichier(argument) : await lireEntree()
+      const donnees = JSON.parse(texte)
+      const { nombre } = portail.importerRegles(donnees)
+      ecrire(`${nombre} élément(s) du livre « ${donnees.livre} » importé(s) ; les règles précédentes de ce livre sont remplacées.`)
+      return
+    }
+    case 'livres-regles': {
+      const livres = portail.livresDeRegles()
+      ecrire(livres.length ? livres.map((l) => `${l.livre} : ${l.nombre} élément(s)`).join('\n') : 'Aucun livre importé : seul le SRD est utilisé.')
       return
     }
     case 'exporter-etat': {

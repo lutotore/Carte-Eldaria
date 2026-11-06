@@ -34,3 +34,45 @@ export function creerCatalogue(elements) {
     listesDuGroupe: (groupe) => tous('liste').filter((l) => l.groupe === groupe),
   }
 }
+
+const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/
+const CARACS = ['for', 'dex', 'con', 'int', 'sag', 'cha']
+const INCANTATIONS = [null, undefined, 'complet', 'demi', 'tiers', 'pacte']
+
+/** Les listes d'options que nomment les choix d'un élément (classe, sous-classe, don). */
+function listesNommees(element) {
+  const tables = [...Object.values(element.choix ?? {}), ...(element.multiclasse?.choix ?? [])]
+  const choix = Array.isArray(element.choix) ? element.choix : tables.flat()
+  return choix.filter((c) => c.liste).map((c) => c.liste)
+}
+
+function erreurElement(element, catalogue) {
+  if (typeof element !== 'object' || element === null) return 'Élément invalide.'
+  const nom = `${element.type} ${element.id}`
+  if (typeof element.id !== 'string' || !ID.test(element.id)) return `${nom} : id invalide (minuscules, chiffres et tirets).`
+  if (typeof element.nom !== 'string' || !element.nom.trim()) return `${nom} : nom manquant.`
+  if (typeof element.source !== 'string' || !element.source.trim()) return `${nom} : source manquante.`
+  if (element.type === 'sous-classe' && !catalogue.classe(element.classe)) return `${nom} : classe inconnue (${element.classe}).`
+  if (element.type === 'classe' && ![6, 8, 10, 12].includes(element.de)) return `${nom} : dé de vie invalide.`
+  if (!INCANTATIONS.includes(element.incantation)) return `${nom} : incantation inconnue (${element.incantation}).`
+  const parmi = element.amelioration?.parmi ?? []
+  if (!parmi.every((c) => CARACS.includes(c))) return `${nom} : caractéristique inconnue dans l’amélioration.`
+  const manquante = listesNommees(element).find((liste) => !catalogue.liste(liste))
+  return manquante ? `${nom} : liste inconnue (${manquante}).` : null
+}
+
+/** Message d'erreur, ou null si ces éléments forment un catalogue cohérent. Sert à vérifier un fichier avant de l'importer. */
+export function erreurCatalogue(elements) {
+  if (!Array.isArray(elements)) return 'Les éléments doivent former une liste.'
+  let catalogue
+  try {
+    catalogue = creerCatalogue(elements)
+  } catch (e) {
+    return e.message
+  }
+  for (const element of elements) {
+    const erreur = erreurElement(element, catalogue)
+    if (erreur) return erreur
+  }
+  return null
+}

@@ -57,7 +57,8 @@ describe('optionsDeMontee', () => {
 
   it('propose les sous-classes au bon niveau, avec ce que chacune apporte', () => {
     const options = optionsDeMontee(ficheDe('guerrier', 2), cat)
-    expect(options.sousClasse).toEqual([{ id: 'champion', nom: 'Champion', source: 'SRD 5.1', aptitudes: ['Critique amélioré'], choix: [] }])
+    expect(options.sousClasse[0]).toEqual({ id: 'champion', nom: 'Champion', source: 'SRD 5.1', page: null, aptitudes: ['Critique amélioré'], choix: [] })
+    expect(ids(options.sousClasse)).toEqual(['champion', 'chevalier-test'])
     expect(options.aptitudes).toEqual(['Archétype martial'])
   })
 
@@ -106,7 +107,9 @@ describe('appliquerMontee', () => {
     expect(apres).toMatchObject({ niveau: 5, classe: 'Guerrier 5 (Champion)', desDeVie: '5d10', pvMax: 52, pvActuels: 38 })
     expect(apres.regles.classes).toEqual([{ classe: 'guerrier', niveau: 5, sousClasse: 'champion' }])
     expect(apres.regles.pvDes).toEqual([10, 6, 6, 6, 6])
-    expect(apres.regles.montees).toEqual([{ classe: 'guerrier', niveau: 5, pv: 8, sousClasse: null, caracs: {}, don: null, choix: {}, competences: {} }])
+    expect(apres.regles.montees).toEqual([{
+      classe: 'guerrier', niveau: 5, pv: 8, sousClasse: null, caracs: {}, don: null, sauvegarde: null, choix: {}, competences: {},
+    }])
   })
 
   it('compte au moins 1 PV par niveau, même avec une très mauvaise Constitution', () => {
@@ -322,5 +325,59 @@ describe('multiclassage', () => {
     expect(erreurRattachement(cinq, { classes: [{ classe: 'barbare', niveau: 2 }, { classe: 'barbare', niveau: 3, sousClasse: 'berserker' }] }, cat)).toMatch(/deux fois/)
     expect(erreurRattachement(cinq, { classes: [{ classe: 'barbare', niveau: 0 }, { classe: 'barde', niveau: 5, sousClasse: 'savoir' }] }, cat)).toMatch(/niveau/)
     expect(erreurRattachement(cinq, { classes: [] }, cat)).toMatch(/classe/)
+  })
+})
+
+describe('dons et sous-classes des livres', () => {
+  const guerrier = (caracs = {}) => ficheDe('guerrier', 3, { sousClasse: 'champion', caracs, competences: { athletisme: 1 } })
+  const avecDon = (don, reste = {}) => ({ classe: 'guerrier', amelioration: { don, ...reste.amelioration }, ...(reste.choix ? { choix: reste.choix } : {}) })
+  const don = (fiche, id) => optionsDeMontee(fiche, cat).amelioration.dons.find((d) => d.id === id)
+
+  it('accepte l’un ou l’autre prérequis (Intelligence ou Sagesse 13)', () => {
+    expect(don(guerrier(), 'ritualiste')).toMatchObject({ disponible: false, raison: 'Intelligence 13 ou Sagesse 13 requise.' })
+    expect(don(guerrier({ sag: 13 }), 'ritualiste').disponible).toBe(true)
+  })
+
+  it('montre sans bloquer un prérequis que le site ne peut pas vérifier', () => {
+    expect(don(guerrier(), 'mage-de-guerre')).toMatchObject({ disponible: true, aVerifier: 'Capacité à lancer au moins un sort' })
+  })
+
+  it('ajoute la sauvegarde de la caractéristique choisie avec Résistant, et l’enlève à l’annulation', () => {
+    const fiche = guerrier()
+    const apres = monter(fiche, avecDon('resistant', { amelioration: { caracs: { sag: 1 } } }))
+    expect(apres.caracteristiques.sag).toBe(11)
+    expect(apres.sauvegardes).toEqual(['sag'])
+    expect(apres.regles.montees.at(-1).sauvegarde).toBe('sag')
+    expect(annulerDerniereMontee(apres, cat)).toEqual(fiche)
+  })
+
+  it('demande les choix propres au don, et seulement si on le prend', () => {
+    const fiche = guerrier()
+    expect(don(fiche, 'doue').choix).toMatchObject([{ cle: 'competences', nombre: 3 }])
+    expect(erreurMontee(fiche, avecDon('doue'), cat)).toMatch(/Compétences/)
+    expect(erreurMontee(fiche, { classe: 'guerrier', amelioration: { caracs: { for: 2 } }, choix: { competences: ['arcanes'] } }, cat)).toMatch(/inattendu/)
+    const apres = monter(fiche, avecDon('doue', { choix: { competences: ['arcanes', 'histoire', 'nature'] } }))
+    expect(apres.competences).toEqual({ athletisme: 1, arcanes: 1, histoire: 1, nature: 1 })
+  })
+
+  it('reprend un don répétable avec une autre option', () => {
+    let fiche = monter(guerrier(), avecDon('adepte', { choix: { 'elements-test': ['feu'] } }))
+    fiche = monter(fiche, { classe: 'guerrier' }) // le guerrier a sa prochaine amélioration au niveau 6
+    expect(don(fiche, 'adepte')).toMatchObject({ disponible: true })
+    expect(ids(don(fiche, 'adepte').choix[0].options)).toEqual(['froid'])
+  })
+
+  it('compte une sous-classe qui lance des sorts (tiers de lanceur)', async () => {
+    const { emplacements } = await import('../../../src/domain/regles/emplacements.js')
+    const fiche = monter(ficheDe('guerrier', 2), { classe: 'guerrier', sousClasse: 'chevalier-test' })
+    expect(emplacements(fiche.regles, cat).sorts).toEqual([2])
+    expect(optionsDeMontee(fiche, cat).aVenir).toEqual([expect.stringMatching(/sorts/i)])
+  })
+
+  it('donne directement l’expertise quand la sous-classe le dit (Domaine du savoir)', () => {
+    const clerc = monter(ficheDe('magicien', 1, { caracs: { sag: 13, int: 13 } }), {
+      classe: 'clerc', sousClasse: 'savoir-test', choix: { competences: ['arcanes', 'religion'] },
+    })
+    expect(clerc.competences).toEqual({ arcanes: 2, religion: 2 })
   })
 })

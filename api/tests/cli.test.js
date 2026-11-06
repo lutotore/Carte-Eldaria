@@ -76,6 +76,18 @@ describe('ligne de commande du serveur', () => {
     expect(portail.calendrier({ demandeurId: tomId, campagneId }).evenements.map((e) => e.titre)).toContain('Arrivée à Cendrebas')
   })
 
+  it('importe les règles d’un livre et liste les livres importés', async () => {
+    const { portail } = portailDeTest()
+    const fichier = JSON.stringify({
+      livre: 'Livre du joueur',
+      elements: [{ type: 'don', id: 'robuste', nom: 'Robuste', source: 'Livre du joueur', pvParNiveau: 2, resume: '+2 PV par niveau.' }],
+    })
+    expect(await lancer(portail, ['importer-regles', 'regles-phb.json'], '', { 'regles-phb.json': fichier }))
+      .toMatch(/1 élément\(s\) du livre « Livre du joueur » importé\(s\)/)
+    expect(await lancer(portail, ['livres-regles'])).toBe('Livre du joueur : 1 élément(s)')
+    expect(await lancer(portail, ['importer-regles'], fichier)).toMatch(/1 élément/)
+  })
+
   it('refuse une commande inconnue en affichant l’aide', async () => {
     const { portail } = portailDeTest()
     await expect(lancer(portail, ['danser'])).rejects.toThrow(/Commandes disponibles/)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { creerCatalogue } from '../../../src/domain/regles/catalogue.js'
+import { creerCatalogue, erreurCatalogue } from '../../../src/domain/regles/catalogue.js'
 import { ELEMENTS_SRD } from '../../../src/domain/regles/srd.js'
 import { srd } from './aides.js'
 
@@ -51,5 +51,25 @@ describe('creerCatalogue', () => {
     expect(cat.classe('toString')).toBeNull()
     expect(cat.don('__proto__')).toBeNull()
     expect(cat.sousClasse('guerrier', 'voleur')).toBeNull()
+  })
+})
+
+describe('erreurCatalogue : un fichier de règles se vérifie avant d’être importé', () => {
+  const sousClasse = (x = {}) => ({ type: 'sous-classe', id: 'maitre', classe: 'guerrier', nom: 'Maître de guerre', source: 'PHB', aptitudes: {}, ...x })
+
+  it('accepte le SRD et des ajouts cohérents', () => {
+    expect(erreurCatalogue(ELEMENTS_SRD)).toBeNull()
+    expect(erreurCatalogue([...ELEMENTS_SRD, sousClasse({ choix: { 3: [{ liste: 'styles-guerrier', nombre: 1 }] } })])).toBeNull()
+  })
+
+  it('signale l’élément fautif', () => {
+    expect(erreurCatalogue([...ELEMENTS_SRD, sousClasse({ classe: 'pirate' })])).toMatch(/maitre.*pirate/)
+    expect(erreurCatalogue([...ELEMENTS_SRD, sousClasse({ choix: { 3: [{ liste: 'manoeuvres', nombre: 3 }] } })])).toMatch(/manoeuvres/)
+    expect(erreurCatalogue([...ELEMENTS_SRD, sousClasse({ id: 'Maître!' })])).toMatch(/id/)
+    expect(erreurCatalogue([...ELEMENTS_SRD, sousClasse({ nom: '' })])).toMatch(/nom/)
+    expect(erreurCatalogue([...ELEMENTS_SRD, sousClasse(), sousClasse()])).toMatch(/double/)
+    expect(erreurCatalogue([...ELEMENTS_SRD, { type: 'don', id: 'x', nom: 'X', source: 'PHB', amelioration: { parmi: ['chance'], valeur: 1 } }])).toMatch(/x/)
+    expect(erreurCatalogue([...ELEMENTS_SRD, { type: 'don', id: 'y', nom: 'Y', source: 'PHB', choix: [{ liste: 'nulle-part', nombre: 1 }] }])).toMatch(/nulle-part/)
+    expect(erreurCatalogue('pas une liste')).toBeTruthy()
   })
 })

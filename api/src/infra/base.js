@@ -353,6 +353,16 @@ export const MIGRATIONS = [
     valeur TEXT NOT NULL
   );
   `,
+  `
+  -- Règles des livres que possède le MJ (classes, sous-classes, dons…) : jamais dans le dépôt public.
+  -- Un élément par ligne, au format de src/domain/regles ; réimporter un livre remplace tous ses éléments.
+  CREATE TABLE regles_elements (
+    id      INTEGER PRIMARY KEY,
+    livre   TEXT NOT NULL,
+    contenu TEXT NOT NULL
+  );
+  CREATE INDEX regles_elements_livre ON regles_elements(livre);
+  `,
 ]
 
 export function ouvrirBase(chemin) {

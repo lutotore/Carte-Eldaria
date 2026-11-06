@@ -14,6 +14,7 @@ import { creerCalendrier } from './calendrier.js'
 import { creerPersonnages } from './personnages.js'
 import { creerPush, envoyeurWebPush } from './push.js'
 import { creerPlanning } from './planning.js'
+import { creerRegles } from './regles.js'
 
 export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
 
@@ -27,7 +28,10 @@ export function creerPortail({
   const depots = creerDepots(db)
   const planningDeLaCampagne = creerPlanning({ db, depots, maintenant })
   const bibliothequeDeLaCampagne = creerBibliotheque({ db, depots, maintenant, images })
-  const personnagesDeLaCampagne = creerPersonnages({ db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne })
+  const reglesDuJeu = creerRegles({ db })
+  const personnagesDeLaCampagne = creerPersonnages({
+    db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne, catalogueRegles: reglesDuJeu.catalogue,
+  })
   const calendrierDeLaCampagne = creerCalendrier({ db, depots, maintenant })
   const pushDuPortail = creerPush({ db, maintenant, envoyeur: envoyeurPush, delaiEnvoiMs: delaiEnvoiPushMs })
   const iso = () => maintenant().toISOString()
@@ -326,6 +330,9 @@ export function creerPortail({
 
     // --- Fiches de personnage, inventaire, Marques du Rêve, butins (voir services/personnages.js) ---
     ...personnagesDeLaCampagne,
+    // Administration en ligne de commande seulement : aucune route HTTP ne les expose.
+    importerRegles: reglesDuJeu.importerRegles,
+    livresDeRegles: reglesDuJeu.livresDeRegles,
 
     /**
      * Import d'un fichier préparé (ligne de commande) : les fiches de la bibliothèque, puis les butins,

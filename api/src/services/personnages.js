@@ -27,7 +27,9 @@ const bourseSeule = (pieces) => Object.fromEntries(PIECES.map((p) => [p.cle, pie
  * et butins de rencontre où les joueurs se servent.
  * Une fiche ne se lit que par son joueur et par les MJ ; chaque méthode vérifie elle-même les droits.
  */
-export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles = creerCatalogue(ELEMENTS_SRD) }) {
+const CATALOGUE_SRD = creerCatalogue(ELEMENTS_SRD)
+
+export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalogueRegles = () => CATALOGUE_SRD }) {
   const persos = creerDepotsPersonnages(db)
   const notifications = creerDepotsPlanning(db).notifications
   const iso = () => maintenant().toISOString()
@@ -210,6 +212,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
     optionsMontee({ demandeurId, campagneId, personnageId, classe = null }) {
       const fiche = ficheComplete(exigerAcces(demandeurId, campagneId, personnageId).personnage)
       if (!fiche.regles) {
+        const regles = catalogueRegles()
         const classes = regles.classes().map((c) => ({
           id: c.id, nom: c.nom, niveauSousClasse: c.niveauSousClasse,
           sousClasses: regles.sousClassesDe(c.id).map((s) => ({ id: s.id, nom: s.nom })),
@@ -218,8 +221,8 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
       }
       const derniere = fiche.regles.montees.at(-1)
       return {
-        options: optionsDeMontee(fiche, regles, classe ?? fiche.regles.classes[0].classe),
-        classes: classesPossibles(fiche, regles),
+        options: optionsDeMontee(fiche, catalogueRegles(), classe ?? fiche.regles.classes[0].classe),
+        classes: classesPossibles(fiche, catalogueRegles()),
         annulable: derniere ? { niveau: derniere.niveau, classe: derniere.classe } : null,
       }
     },
@@ -229,6 +232,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
       const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
       const fiche = ficheComplete(personnage)
       const demande = Array.isArray(classes) ? { classes } : { classe, sousClasse }
+      const regles = catalogueRegles()
       exigerSansErreur(erreurRattachement(fiche, demande, regles))
       ecrireFiche(personnage, rattacher(fiche, demande, regles))
     },
@@ -236,6 +240,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
     monterDeNiveau({ demandeurId, campagneId, personnageId, demande }) {
       const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
       const fiche = ficheComplete(personnage)
+      const regles = catalogueRegles()
       exigerSansErreur(erreurMontee(fiche, demande, regles))
       const apres = appliquerMontee(fiche, demande, regles)
       transaction(db, () => {
@@ -248,7 +253,7 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, regles 
       const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
       const fiche = ficheComplete(personnage)
       exiger(fiche.regles?.montees.length, erreurs.requeteInvalide('Aucune montée de niveau faite sur le site à annuler.'))
-      ecrireFiche(personnage, annulerDerniereMontee(fiche, regles))
+      ecrireFiche(personnage, annulerDerniereMontee(fiche, catalogueRegles()))
     },
 
     /** La fiche redevient libre : on peut à nouveau tout y écrire à la main. */

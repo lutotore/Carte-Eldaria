@@ -40,8 +40,14 @@ const demandeSousClasse = (ligne) => Boolean(definition(ligne.classe)) && ligne.
 const totalLignes = computed(() => lignes.value.reduce((t, l) => t + (Number(l.niveau) || 0), 0))
 const ligneVide = (niveau) => ({ classe: '', niveau, sousClasse: '' })
 const sousClasseRetenue = computed(() => options.value?.sousClasse?.find((s) => s.id === sousClasse.value) ?? null)
-const choixAFaire = computed(() => [...(options.value?.choix ?? []), ...(sousClasseRetenue.value?.choix ?? [])])
 const donRetenu = computed(() => options.value?.amelioration?.dons.find((d) => d.id === don.value) ?? null)
+const choixAFaire = computed(() => [
+  ...(options.value?.choix ?? []),
+  ...(sousClasseRetenue.value?.choix ?? []),
+  ...(modeAmelioration.value === 'don' ? donRetenu.value?.choix ?? [] : []),
+])
+/** « SRD 5.1 », ou « Livre du joueur, p. 80 ». */
+const reference = ({ source, page }) => (page ? `${source}, p. ${page}` : source)
 const totalPoints = computed(() => Object.values(points.value).reduce((t, n) => t + n, 0))
 const nomCarac = (cle) => CARACTERISTIQUES.find((c) => c.cle === cle).nom
 
@@ -189,7 +195,7 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
             <legend>Sous-classe</legend>
             <label v-for="s in options.sousClasse" :key="s.id" class="option">
               <input v-model="sousClasse" type="radio" name="sous-classe" :value="s.id" required @change="choix = {}">
-              <span><strong>{{ s.nom }}</strong> <small>({{ s.source }})</small>
+              <span><strong>{{ s.nom }}</strong> <small>({{ reference(s) }})</small>
                 <span v-if="s.aptitudes.length" class="details">{{ s.aptitudes.join(', ') }}</span></span>
             </label>
           </fieldset>
@@ -219,7 +225,8 @@ const detacher = () => apres(() => api.detacherDesRegles(props.campagneId, props
                   </option>
                 </select>
               </label>
-              <p v-if="donRetenu" class="details">{{ donRetenu.resume }} <small>({{ donRetenu.source }})</small></p>
+              <p v-if="donRetenu" class="details">{{ donRetenu.resume }} <small>({{ reference(donRetenu) }})</small></p>
+            <p v-if="donRetenu?.aVerifier" class="aide">À vérifier toi-même : {{ donRetenu.aVerifier }}.</p>
               <label v-if="donRetenu?.amelioration" class="champ">Caractéristique (+{{ donRetenu.amelioration.valeur }})
                 <select v-model="caracDuDon" required>
                   <option value="" disabled>Choisir…</option>
