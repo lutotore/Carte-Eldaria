@@ -5,6 +5,7 @@ import { api } from '../api/client.js'
 import AptitudesRegles from '../components/personnage/AptitudesRegles.vue'
 import BarreDeCombat from '../components/personnage/BarreDeCombat.vue'
 import BoursePersonnage from '../components/personnage/BoursePersonnage.vue'
+import ChoixEnRetard from '../components/personnage/ChoixEnRetard.vue'
 import FichePersonnage from '../components/personnage/FichePersonnage.vue'
 import ImportAideDD from '../components/personnage/ImportAideDD.vue'
 import InventairePersonnage from '../components/personnage/InventairePersonnage.vue'
@@ -90,6 +91,7 @@ const supprimer = () => envoyer(async () => {
         <ImportAideDD :campagne-id="id" :personnage="personnage" @importe="apresImport" />
       </div>
       <BarreDeCombat :campagne-id="id" :personnage="personnage" @recharger="recharger" />
+      <ChoixEnRetard :campagne-id="id" :personnage="personnage" @recharger="recharger" />
 
       <!-- Page 1 : la feuille -->
       <div id="feuille" class="page">

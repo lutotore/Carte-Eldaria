@@ -4,7 +4,8 @@ import {
 import { calculs, erreurBourse, erreurChamps, erreurLigne, ficheVierge, PIECES } from '../../../src/domain/personnage.js'
 import { creerCatalogue } from '../../../src/domain/regles/catalogue.js'
 import {
-  annulerDerniereMontee, appliquerMontee, classesPossibles, erreurMontee, erreurRattachement, optionsDeMontee, rattacher,
+  annulerDerniereMontee, appliquerMontee, choixEnRetard, classesPossibles, erreurMontee, erreurRattachement, erreurRattrapage, optionsDeMontee,
+  rattacher, rattraperChoix,
 } from '../../../src/domain/regles/montee.js'
 import { resumeDesRegles } from '../../../src/domain/regles/resume.js'
 import { appliquerSorts, erreurSorts, etatDesSorts } from '../../../src/domain/regles/sorts.js'
@@ -194,6 +195,8 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
         regles: fiche.regles ? resumeDesRegles(fiche, catalogueRegles()) : null,
         // Pour chaque classe qui lance des sorts : limites, options et sélection.
         sorts: etatDesSorts(fiche, catalogueRegles()),
+        // Les choix de liste des niveaux d'avant le rattachement (manifestations, pacte, style de combat…) qui restent à faire.
+        choixEnRetard: choixEnRetard(fiche, catalogueRegles()),
         bourse: personnage.bourse,
         inventaire: inventaireLu(personnage, demandeurId, pourMj),
         marques: persos.marques.du(personnage.id),
@@ -271,6 +274,15 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
       const regles = catalogueRegles()
       exigerSansErreur(erreurSorts(fiche, classe, selection, regles))
       ecrireFiche(personnage, appliquerSorts(fiche, classe, selection))
+    },
+
+    /** Un choix de liste d'un niveau d'avant le rattachement, vérifié par les règles. */
+    rattraperChoix({ demandeurId, campagneId, personnageId, liste, ids }) {
+      const { personnage } = exigerAcces(demandeurId, campagneId, personnageId)
+      const fiche = ficheComplete(personnage)
+      const regles = catalogueRegles()
+      exigerSansErreur(erreurRattrapage(fiche, liste, ids, regles))
+      ecrireFiche(personnage, rattraperChoix(fiche, liste, ids, regles))
     },
 
     /** La fiche redevient libre : on peut à nouveau tout y écrire à la main. */

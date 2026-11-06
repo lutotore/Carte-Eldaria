@@ -63,6 +63,10 @@ export function routesPersonnages(api, portail) {
     portail.choisirSorts({ ...perso(request), classe: request.params.classe, selection })
     return sansContenu(reply)
   })
+  api.put('/api/campagnes/:id/personnages/:personnageId/regles/choix/:liste', connecte, async (request, reply) => {
+    portail.rattraperChoix({ ...perso(request), liste: request.params.liste, ids: corps(request).ids })
+    return sansContenu(reply)
+  })
   api.post('/api/campagnes/:id/personnages/:personnageId/montees', connecte, async (request, reply) => {
     const { classe, sousClasse, amelioration, choix, optionnelles } = corps(request)
     portail.monterDeNiveau({ ...perso(request), demande: { classe, sousClasse, amelioration, choix, optionnelles } })

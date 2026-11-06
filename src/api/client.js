@@ -101,6 +101,7 @@ export const api = {
   detacherDesRegles: (campagneId, personnageId) => appeler('DELETE', `/api/campagnes/${campagneId}/personnages/${personnageId}/regles`),
   monterDeNiveau: (campagneId, personnageId, demande) => appeler('POST', `/api/campagnes/${campagneId}/personnages/${personnageId}/montees`, demande),
   choisirSorts: (campagneId, personnageId, classe, selection) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/sorts/${classe}`, selection),
+  rattraperChoix: (campagneId, personnageId, liste, ids) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/regles/choix/${liste}`, { ids }),
   annulerMontee: (campagneId, personnageId) => appeler('DELETE', `/api/campagnes/${campagneId}/personnages/${personnageId}/montees/derniere`),
   ajouterMarque: (campagneId, personnageId, marque) => appeler('POST', `/api/campagnes/${campagneId}/personnages/${personnageId}/marques`, marque),
   modifierMarque: (campagneId, personnageId, marqueId, marque) => appeler('PUT', `/api/campagnes/${campagneId}/personnages/${personnageId}/marques/${marqueId}`, marque),

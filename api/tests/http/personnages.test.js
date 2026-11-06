@@ -83,6 +83,19 @@ describe('aptitudes optionnelles par HTTP', () => {
   })
 })
 
+describe('rattrapage des choix par HTTP', () => {
+  it('enregistre le style de combat d’un guerrier rattaché, refuse une option inconnue', async () => {
+    const { appel, cookieLea } = await avecJoueurs()
+    const { personnageId } = (await appel(cookieLea, 'POST', '/personnages', { nom: 'Isaure' })).json()
+    const chemin = `/personnages/${personnageId}`
+    await appel(cookieLea, 'PUT', `${chemin}/regles`, { classe: 'guerrier' })
+    expect((await appel(cookieLea, 'GET', chemin)).json().choixEnRetard).toMatchObject([{ cle: 'styles-guerrier', manquants: 1 }])
+    expect((await appel(cookieLea, 'PUT', `${chemin}/regles/choix/styles-guerrier`, { ids: ['inconnu'] })).statusCode).toBe(400)
+    expect((await appel(cookieLea, 'PUT', `${chemin}/regles/choix/styles-guerrier`, { ids: ['defense'] })).statusCode).toBe(204)
+    expect((await appel(cookieLea, 'GET', chemin)).json().choixEnRetard).toEqual([])
+  })
+})
+
 describe('butins par HTTP', () => {
   it('le MJ prépare et ouvre, le joueur prend un objet et des pièces', async () => {
     const { appel, cookieTom, cookieLea } = await avecJoueurs()

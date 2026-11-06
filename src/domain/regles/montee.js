@@ -477,3 +477,53 @@ export function annulerDerniereMontee(fiche, catalogue) {
     regles: nouvellesRegles,
   }, catalogue)
 }
+
+// --- Rattraper les choix d'avant le rattachement ---
+// Une fiche rattachée à un niveau élevé n'a pas fait sur le site les choix de liste de ses niveaux passés
+// (manifestations, pacte, style de combat…) : on les propose jusqu'à ce que le compte y soit.
+
+/** Pour chaque liste : combien d'options les niveaux déjà atteints donnent, et dans quelle classe. */
+function choixDesNiveauxAtteints(regles, catalogue) {
+  const attendus = new Map()
+  for (const { classe: id, niveau, sousClasse } of regles.classes) {
+    const classe = catalogue.classe(id)
+    const sous = sousClasse ? catalogue.sousClasse(id, sousClasse) : null
+    const remplacees = remplacements(regles.choix[OPTIONS_CLASSE] ?? [], catalogue, id).listes
+    for (let n = 1; n <= niveau; n += 1) {
+      for (const { liste, nombre } of [...auNiveau(classe?.choix, n), ...auNiveau(sous?.choix, n)]) {
+        if (!liste || remplacees.includes(liste) || !catalogue.liste(liste)) continue
+        attendus.set(liste, { classe: id, niveauClasse: niveau, nombre: (attendus.get(liste)?.nombre ?? 0) + nombre })
+      }
+    }
+  }
+  return attendus
+}
+
+/** Les choix de liste qui manquent encore : `[{ cle, classe, libelle, manquants, options }]`. */
+export function choixEnRetard(fiche, catalogue) {
+  if (!fiche.regles) return []
+  return [...choixDesNiveauxAtteints(fiche.regles, catalogue)].flatMap(([liste, { classe, niveauClasse, nombre }]) => {
+    const manquants = nombre - (fiche.regles.choix[liste]?.length ?? 0)
+    if (manquants <= 0) return []
+    const { libelle, options } = decrireChoix({ liste }, fiche, niveauClasse, catalogue)
+    return [{ cle: liste, classe, libelle, manquants, options }]
+  })
+}
+
+/** Message d'erreur, ou null si ces options peuvent rattraper ce qui manque dans la liste. */
+export function erreurRattrapage(fiche, liste, ids, catalogue) {
+  if (!fiche.regles) return 'Ta fiche ne suit pas les règles du site.'
+  const retard = choixEnRetard(fiche, catalogue).find((r) => r.cle === liste)
+  if (!retard) return 'Rien à rattraper pour ce choix.'
+  const { libelle, manquants, options } = retard
+  if (!Array.isArray(ids) || ids.length === 0) return `${libelle} : fais ton choix.`
+  if (ids.length > manquants) return `${libelle} : ${manquants} au plus.`
+  if (new Set(ids).size !== ids.length) return `${libelle} : une même option deux fois.`
+  return ids.every((id) => options.some((o) => o.id === id)) ? null : `${libelle} : option non disponible.`
+}
+
+export function rattraperChoix(fiche, liste, ids, catalogue) {
+  const erreur = erreurRattrapage(fiche, liste, ids, catalogue)
+  if (erreur) throw new Error(erreur)
+  return { ...fiche, regles: { ...fiche.regles, choix: fusionnerChoix(fiche.regles.choix, { [liste]: ids }) } }
+}

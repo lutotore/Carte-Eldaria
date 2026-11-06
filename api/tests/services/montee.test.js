@@ -163,3 +163,23 @@ describe('sorts', () => {
     expect(() => portail.choisirSorts({ ...qui('lea'), personnageId, classe: 'clerc', selection: {} })).toThrow(refus('requete_invalide'))
   })
 })
+
+describe('rattraper les choix d’avant le rattachement', () => {
+  it('montre ce qui manque et l’enregistre une fois choisi', async () => {
+    const { portail, qui, personnageId, fiche } = await table()
+    expect(portail.personnage({ ...qui('lea'), personnageId }).choixEnRetard).toEqual([])
+    portail.rattacherAuxRegles({ ...qui('lea'), personnageId, classe: 'guerrier' })
+    const [style] = portail.personnage({ ...qui('lea'), personnageId }).choixEnRetard
+    expect(style).toMatchObject({ cle: 'styles-guerrier', classe: 'guerrier', manquants: 1 })
+    portail.rattraperChoix({ ...qui('lea'), personnageId, liste: 'styles-guerrier', ids: ['defense'] })
+    expect(fiche().regles.choix['styles-guerrier']).toEqual(['defense'])
+    expect(portail.personnage({ ...qui('lea'), personnageId }).choixEnRetard).toEqual([])
+  })
+
+  it('refuse un choix hors règles et la fiche d’un autre joueur', async () => {
+    const { portail, qui, personnageId } = await table()
+    portail.rattacherAuxRegles({ ...qui('lea'), personnageId, classe: 'guerrier' })
+    expect(() => portail.rattraperChoix({ ...qui('lea'), personnageId, liste: 'styles-guerrier', ids: ['inconnu'] })).toThrow(refus('requete_invalide'))
+    expect(() => portail.rattraperChoix({ ...qui('max'), personnageId, liste: 'styles-guerrier', ids: ['defense'] })).toThrow(refus('introuvable'))
+  })
+})
