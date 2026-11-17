@@ -16,6 +16,9 @@ const AIDE = `Commandes disponibles :
                                  ajoute les PNJ du fichier JSON (ou de l'entrée standard) à la bibliothèque, tous cachés
   importer-evenements <n° campagne> [fichier]
                                  ajoute au calendrier les événements du fichier JSON (ou de l'entrée standard), tous cachés
+  importer-scenes <n° campagne> [fichier]
+                                 remplace les scènes du pupitre de séance par celles du fichier JSON
+                                 (les fiches fournies qui manquent sont créées, cachées)
   importer-regles [fichier]      ajoute ou remplace les règles d'un livre (classes, sous-classes, dons)
                                  depuis un fichier JSON de mj/ (ou l'entrée standard)
   livres-regles                  liste les livres de règles importés
@@ -49,6 +52,14 @@ export async function executerCommande([commande, argument, fichier], { portail,
       const texte = fichier ? await lireFichier(fichier) : await lireEntree()
       const { nombre } = portail.importerEvenements(Number(argument), JSON.parse(texte))
       ecrire(`${nombre} événement(s) importé(s), tous cachés, dans le calendrier de la campagne n° ${argument}.`)
+      return
+    }
+    case 'importer-scenes': {
+      const texte = fichier ? await lireFichier(fichier) : await lireEntree()
+      const { scenes, fichesCreees, introuvables } = portail.importerScenes(Number(argument), JSON.parse(texte))
+      ecrire(`${scenes} scène(s) importée(s) dans le pupitre de la campagne n° ${argument} ; les précédentes sont remplacées.`)
+      if (fichesCreees) ecrire(`${fichesCreees} fiche(s) créée(s) dans la bibliothèque, toutes cachées.`)
+      for (const manque of introuvables) ecrire(`Introuvable : ${manque} (élément ignoré).`)
       return
     }
     case 'importer-regles': {

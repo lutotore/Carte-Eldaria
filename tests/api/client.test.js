@@ -92,4 +92,16 @@ describe("client de l'API", () => {
       ['PUT', '/api/campagnes/1/calendrier/butoir', { jour: 1170400, libelle: 'Le Grand Éveil', revele: false }],
     ])
   })
+  it('parle au pupitre de séance', async () => {
+    const fetch = repondre(204)
+    vi.stubGlobal('fetch', fetch)
+    await api.revelerScene('3', 12, { element: 1, pourTous: true, joueurs: [] })
+    await api.revelerEnLot('3', [4, 5], { pourTous: false, joueurs: [9] })
+    await api.noterAuJournal('3', 'Tam a pris la pioche.')
+    expect(fetch.mock.calls.map(([url, o]) => [o.method, url, JSON.parse(o.body)])).toEqual([
+      ['POST', '/api/campagnes/3/scenes/12/revelation', { element: 1, pourTous: true, joueurs: [] }],
+      ['POST', '/api/campagnes/3/revelations', { fiches: [4, 5], pourTous: false, joueurs: [9] }],
+      ['POST', '/api/campagnes/3/journal', { texte: 'Tam a pris la pioche.' }],
+    ])
+  })
 })

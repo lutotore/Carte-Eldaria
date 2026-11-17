@@ -33,6 +33,15 @@ export function erreurPrisePieces(reste, demande) {
   return PIECES.every((p) => demande[p.cle] <= reste[p.cle]) ? null : 'Il n’en reste pas autant dans le butin.'
 }
 
+/**
+ * La part de pièces d'un personnage : ce qui reste, divisé entre ceux qui ne se sont pas encore servis
+ * (arrondi inférieur). Le dernier prend tout le reste ; plus personne à servir : null.
+ */
+export function partDesPieces(reste, partsRestantes) {
+  if (partsRestantes < 1) return null
+  return Object.fromEntries(PIECES.map((p) => [p.cle, Math.floor(reste[p.cle] / partsRestantes)]))
+}
+
 const combiner = (a, b, signe) => Object.fromEntries(PIECES.map((p) => [p.cle, a[p.cle] + signe * b[p.cle]]))
 export const additionner = (a, b) => combiner(a, b, 1)
 export const retirer = (a, b) => combiner(a, b, -1)

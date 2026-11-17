@@ -134,4 +134,9 @@ export function routesPersonnages(api, portail) {
     portail.prendrePieces({ ...butin(request), pieces: corps(request).pieces })
     return sansContenu(reply)
   })
+  // « Prendre ma part » : la part égale, calculée par le serveur.
+  api.post('/api/campagnes/:id/butins/:butinId/part', connecte, async (request, reply) => {
+    portail.prendreMaPart(butin(request))
+    return sansContenu(reply)
+  })
 }

@@ -100,8 +100,12 @@ export function creerDepotsPersonnages(db) {
     },
 
     prises: {
-      creer: ({ butinId, utilisateurId, texte, le }) => requete(`
-        INSERT INTO butin_prises (butin_id, utilisateur_id, texte, le) VALUES (?, ?, ?, ?)`).run(butinId, utilisateurId, texte, le),
+      creer: ({ butinId, utilisateurId, texte, le, pieces = false }) => requete(`
+        INSERT INTO butin_prises (butin_id, utilisateur_id, texte, le, pieces) VALUES (?, ?, ?, ?, ?)`).run(butinId, utilisateurId, texte, le, pieces ? 1 : 0),
+      /** Ceux qui ont déjà pris des pièces dans ce butin, dans l'ordre où ils se sont servis. */
+      servis: (butinId) => requete(`
+        SELECT utilisateur_id AS utilisateurId FROM butin_prises WHERE butin_id = ? AND pieces = 1
+        GROUP BY utilisateur_id ORDER BY MIN(id)`).all(butinId).map((l) => l.utilisateurId),
       du: (butinId) => requete('SELECT texte, le FROM butin_prises WHERE butin_id = ? ORDER BY le, id').all(butinId),
       /** Pour l'export RGPD. */
       de: (utilisateurId) => requete(`

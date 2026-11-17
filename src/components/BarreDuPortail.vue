@@ -1,16 +1,21 @@
 <script setup>
 import { computed } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { campagneDe, estMj, estProprietaire } from '../api/droits.js'
+import { campagneDe, estMj } from '../api/droits.js'
 import { fermerSession, moi } from '../session.js'
 import { couperSurCetAppareil } from '../composables/push.js'
+import { changerPupitre, pupitreDe } from '../composables/pupitre.js'
 import Cloche from './Cloche.vue'
+import { estActif, liensDuPortail } from './navigation.js'
 
 const route = useRoute()
 const router = useRouter()
 
 const campagne = computed(() => (route.params.id ? campagneDe(moi.value, route.params.id) : null))
+const liens = computed(() => (campagne.value ? liensDuPortail(campagne.value).filter((l) => l.enHaut !== false) : []))
 const plusieursCampagnes = computed(() => (moi.value?.campagnes.length ?? 0) > 1)
+const pupitreOuvert = computed(() => Boolean(campagne.value && pupitreDe(campagne.value.id).ouvert))
+const basculerPupitre = () => changerPupitre(campagne.value.id, { ouvert: !pupitreOuvert.value })
 
 // On quitte d'abord la page : elle n'a plus à s'afficher sans compte connecté.
 async function deconnexion() {
@@ -24,24 +29,18 @@ async function deconnexion() {
 <template>
   <header class="barre">
     <nav class="navigation" aria-label="Navigation du portail">
-      <RouterLink v-if="plusieursCampagnes" to="/" class="retour">Mes campagnes</RouterLink>
+      <RouterLink v-if="plusieursCampagnes" to="/" class="retour large">Mes campagnes</RouterLink>
       <span class="marque">{{ campagne?.nom ?? 'Eldaria' }}</span>
-      <template v-if="campagne">
-        <RouterLink :to="{ name: 'carte', params: { id: campagne.id } }" :class="{ actif: route.name === 'carte' }">Carte</RouterLink>
-        <RouterLink :to="{ name: 'seances', params: { id: campagne.id } }" active-class="actif">Séances</RouterLink>
-        <RouterLink :to="{ name: 'calendrier', params: { id: campagne.id } }" active-class="actif">Calendrier</RouterLink>
-        <RouterLink :to="{ name: 'bibliotheque', params: { id: campagne.id } }" :class="{ actif: route.meta.bibliotheque }">Bibliothèque</RouterLink>
-        <RouterLink v-if="estMj(campagne)" :to="{ name: 'personnages', params: { id: campagne.id } }" active-class="actif">Personnages</RouterLink>
-        <RouterLink v-else :to="{ name: 'personnage', params: { id: campagne.id } }" active-class="actif">Ma fiche</RouterLink>
-        <RouterLink :to="{ name: 'butins', params: { id: campagne.id } }" active-class="actif">Butins</RouterLink>
-        <RouterLink v-if="estMj(campagne)" :to="{ name: 'mj', params: { id: campagne.id } }" active-class="actif">Table du MJ</RouterLink>
-        <RouterLink v-if="estProprietaire(campagne)" :to="{ name: 'membres', params: { id: campagne.id } }" active-class="actif">Membres</RouterLink>
-      </template>
+      <RouterLink v-for="l in liens" :key="l.cle" :to="l.to" class="large" :class="{ actif: estActif(l, route) }">{{ l.nom }}</RouterLink>
     </nav>
     <div class="compte">
-      <Cloche />
-      <RouterLink to="/compte" active-class="actif">{{ moi.identifiant }}</RouterLink>
-      <button type="button" class="deconnexion" @click="deconnexion">Se déconnecter</button>
+      <button v-if="estMj(campagne)" type="button" class="seance" :aria-pressed="pupitreOuvert" @click="basculerPupitre">
+        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+        <span class="large-inline">Séance en cours</span><span class="etroit-inline">Séance</span>
+      </button>
+      <Cloche :campagne-id="campagne?.id ?? null" />
+      <RouterLink to="/compte" active-class="actif" class="large">{{ moi.identifiant }}</RouterLink>
+      <button type="button" class="deconnexion large" @click="deconnexion">Se déconnecter</button>
     </div>
   </header>
 </template>
@@ -64,6 +63,18 @@ async function deconnexion() {
 a { color: #e8d6b0; text-decoration: none; border-bottom: 1px solid transparent; }
 a:hover { color: var(--laiton-clair); }
 a.actif { color: var(--laiton-clair); border-bottom-color: var(--laiton); }
+.seance {
+  display: inline-flex; align-items: center; gap: 0.5rem; min-height: 40px; padding: 0 1rem; border-radius: 20px;
+  border: 1px solid var(--couture); background: transparent; color: #e8d6b0; font: inherit; font-weight: 700; cursor: pointer;
+}
+.seance[aria-pressed='true'] { border-color: var(--laiton-clair); background: var(--laiton); color: var(--cuir); }
 .deconnexion { background: none; border: 0; padding: 0; color: #cdb48c; text-decoration: underline; text-underline-offset: 3px; }
 .deconnexion:hover { color: var(--laiton-clair); }
+.etroit-inline { display: none; }
+/* Sur téléphone, les liens passent dans la barre du bas (BarreDuBas) : en haut, le nom, la séance et la cloche. */
+@media (max-width: 719px) {
+  .large { display: none; }
+  .large-inline { display: none; }
+  .etroit-inline { display: inline; }
+}
 </style>

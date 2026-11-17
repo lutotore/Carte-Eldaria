@@ -152,6 +152,46 @@ describe('butins : les joueurs se servent', () => {
   })
 })
 
+describe('butins : chacun prend sa part en un geste', () => {
+  const bourseDe = (portail, qui, personnageId) => portail.personnage({ ...qui, personnageId }).bourse
+
+  it('montre à chaque joueur sa part : ce qui reste, divisé entre les fiches pas encore servies', async () => {
+    const { vue, ouvrir } = await table()
+    ouvrir()
+    expect(vue('lea').butins[0].part).toEqual({ montant: bourse({ po: 20, pa: 2 }), prise: false, servis: [] })
+  })
+
+  it('met la part dans la bourse, une seule fois, et le dernier prend tout le reste', async () => {
+    const { portail, vue, ouvrir, qui, persos } = await table()
+    ouvrir()
+    portail.prendreMaPart({ ...qui('lea'), butinId: vue('lea').butins[0].id })
+    expect(bourseDe(portail, qui('lea'), persos.lea)).toMatchObject({ po: 20, pa: 2 })
+    expect(vue('lea').butins[0]).toMatchObject({ pieces: bourse({ po: 20, pa: 3 }), part: { prise: true, servis: ['Isaure'] } })
+    expect(() => portail.prendreMaPart({ ...qui('lea'), butinId: vue('lea').butins[0].id })).toThrow(refus('requete_invalide'))
+
+    expect(vue('max').butins[0].part.montant).toEqual(bourse({ po: 20, pa: 3 }))
+    portail.prendreMaPart({ ...qui('max'), butinId: vue('max').butins[0].id })
+    expect(bourseDe(portail, qui('max'), persos.max)).toMatchObject({ po: 20, pa: 3 })
+    expect(vue('max').butins[0].pieces).toEqual(bourse())
+    expect(vue('tom').butins[0].prises.map((p) => p.texte)).toEqual(['lea prend sa part : 20 po, 2 pa', 'max prend sa part : 20 po, 3 pa'])
+  })
+
+  it('compte qui a déjà pris des pièces à la main comme servi', async () => {
+    const { portail, vue, ouvrir, qui } = await table()
+    ouvrir()
+    portail.prendrePieces({ ...qui('lea'), butinId: vue('lea').butins[0].id, pieces: bourse({ po: 10 }) })
+    expect(vue('max').butins[0].part).toEqual({ montant: bourse({ po: 30, pa: 5 }), prise: false, servis: ['Isaure'] })
+    expect(vue('lea').butins[0].part.prise).toBe(true)
+  })
+
+  it('refuse un butin fermé, ou un MJ', async () => {
+    const { portail, butinId, qui, ouvrir } = await table()
+    expect(() => portail.prendreMaPart({ ...qui('lea'), butinId })).toThrow(refus('introuvable'))
+    ouvrir()
+    expect(() => portail.prendreMaPart({ ...qui('tom'), butinId })).toThrow(refus('interdit'))
+  })
+})
+
 describe('butins : import et données personnelles', () => {
   it("s'importent avec les fiches d'objets, reliés par leur nom", async () => {
     const { portail, qui, campagneId } = await table()

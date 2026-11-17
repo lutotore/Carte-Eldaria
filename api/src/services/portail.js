@@ -15,6 +15,10 @@ import { creerPersonnages } from './personnages.js'
 import { creerPush, envoyeurWebPush } from './push.js'
 import { creerPlanning } from './planning.js'
 import { creerRegles } from './regles.js'
+import { creerSeance } from './seance.js'
+import { journaliser } from '../../../src/domain/journal.js'
+
+const LONGUEUR_NOTE_JOURNAL = 500
 
 export const DUREES_JOURS = { invitation: 7, reinitialisation: 2, session: 30 }
 
@@ -33,6 +37,7 @@ export function creerPortail({
     db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne, catalogueRegles: reglesDuJeu.catalogue,
   })
   const calendrierDeLaCampagne = creerCalendrier({ db, depots, maintenant })
+  const seanceDeLaCampagne = creerSeance({ db, depots, maintenant, bibliotheque: bibliothequeDeLaCampagne })
   const pushDuPortail = creerPush({ db, maintenant, envoyeur: envoyeurPush, delaiEnvoiMs: delaiEnvoiPushMs })
   const iso = () => maintenant().toISOString()
   const hacher = (motDePasse) => hacherMotDePasse(motDePasse, coutMotDePasse)
@@ -258,6 +263,33 @@ export function creerPortail({
       return { version: versionAttendue + 1 }
     },
 
+    /** « Quoi de neuf » d'un membre : les nouvelles de cette campagne, et la date du monde. */
+    quoiDeNeuf({ demandeurId, campagneId }) {
+      exiger(roleDans(demandeurId, campagneId), erreurs.interdit())
+      return {
+        liste: planningDeLaCampagne.notificationsDeLaCampagne(demandeurId, campagneId),
+        dateDuMonde: calendrierDeLaCampagne.dateDuJour(campagneId),
+      }
+    },
+
+    marquerNouveautesLues({ demandeurId, campagneId }) {
+      exiger(roleDans(demandeurId, campagneId), erreurs.interdit())
+      planningDeLaCampagne.marquerLuesDeLaCampagne(demandeurId, campagneId)
+    },
+
+    /** Note de séance du pupitre : elle rejoint le Journal du monde (et change sa version, comme toute écriture). */
+    noterAuJournal({ demandeurId, campagneId, texte }) {
+      exiger(estMj(roleDans(demandeurId, campagneId)), erreurs.interdit())
+      const net = typeof texte === 'string' ? texte.trim() : ''
+      exiger(net && net.length <= LONGUEUR_NOTE_JOURNAL, erreurs.requeteInvalide(`Note vide ou trop longue (${LONGUEUR_NOTE_JOURNAL} caractères au plus).`))
+      return transaction(db, () => {
+        const ligne = depots.etats.lire(campagneId)
+        exiger(ligne, erreurs.mondeAbsent())
+        depots.etats.ecrire(campagneId, JSON.stringify(journaliser(JSON.parse(ligne.contenu), net)), iso())
+        return { version: ligne.version + 1 }
+      })
+    },
+
     /** Reprise du fichier mj/etat.json (ligne de commande, sur le serveur). */
     importerEtat(campagneId, etat) {
       exiger(depots.campagnes.parId(campagneId), erreurs.introuvable('Campagne'))
@@ -324,6 +356,9 @@ export function creerPortail({
 
     // --- Notifications sur les appareils (voir services/push.js) ---
     ...pushDuPortail,
+
+    // --- Pupitre de séance : scènes préparées (voir services/seance.js) ---
+    ...seanceDeLaCampagne,
 
     // --- Calendrier du monde (voir services/calendrier.js) ---
     ...calendrierDeLaCampagne,

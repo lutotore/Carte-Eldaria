@@ -5,6 +5,7 @@ import {
   aDecouvert, ESTIMABLES, erreurFacette, erreurNote, erreurTitreSecret, etatDeRevelation, FACETTES_PAR_TYPE, grilleEstimations,
   LIBELLES_FACETTES, TITREES_PAR_TYPE, vueJoueur,
 } from '../../../src/domain/fiches.js'
+import { phraseDecouvertes } from '../../../src/domain/scenes.js'
 import { estMj } from '../domaine/roles.js'
 import { transaction } from '../infra/base.js'
 import { creerDepotsBibliotheque } from '../infra/depotsBibliotheque.js'
@@ -184,6 +185,59 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
     }
   }
 
+  function exigerCibles(campagneId, { pourTous, joueurs, masquer }) {
+    if (masquer === true) return []
+    const idsJoueurs = new Set(joueursDe(campagneId).map((j) => j.id))
+    exiger(typeof pourTous === 'boolean' && Array.isArray(joueurs), erreurs.requeteInvalide('Révélation invalide.'))
+    exiger(joueurs.every((id) => idsJoueurs.has(id)), erreurs.requeteInvalide("On ne révèle qu'à des joueurs de la campagne."))
+    exiger(pourTous || joueurs.length > 0, erreurs.requeteInvalide('Choisis au moins un joueur.'))
+    return pourTous ? [null] : [...new Set(joueurs)]
+  }
+
+  /** Cibles d'une facette après ajout : on ne retire jamais ce qu'un joueur savait déjà, sauf pour cacher. */
+  function ciblesApres(facette, cibles, masquer) {
+    if (masquer || cibles.includes(null) || facette.revelations.some((r) => r.pourTous)) return masquer ? [] : [null]
+    return [...new Set([...facette.revelations.map((r) => r.utilisateurId), ...cibles])]
+  }
+
+  /**
+   * Révèle (ou cache) d'un coup des facettes de plusieurs fiches. Chaque joueur qui apprend
+   * quelque chose reçoit une seule notification, qui nomme toutes les fiches découvertes.
+   * `groupes` : [{ ficheId, facetteIds }], fiches déjà vérifiées comme appartenant à la campagne.
+   */
+  function revelerDesFacettes(campagneId, groupes, { pourTous = false, joueurs = [], masquer = false }) {
+    const cibles = exigerCibles(campagneId, { pourTous, joueurs, masquer })
+    // Une même fiche peut revenir dans plusieurs groupes (deux éléments d'une scène) : on les fusionne.
+    const parFiche = new Map()
+    for (const { ficheId, facetteIds } of groupes) parFiche.set(ficheId, [...(parFiche.get(ficheId) ?? []), ...facetteIds])
+    const fusionnes = [...parFiche].map(([ficheId, facetteIds]) => ({ ficheId, facetteIds }))
+    transaction(db, () => {
+      const avant = new Map(fichesCompletes(campagneId).map((f) => [f.id, f]))
+      for (const { ficheId, facetteIds } of fusionnes) {
+        const fiche = avant.get(ficheId)
+        for (const facette of fiche.facettes.filter((f) => facetteIds.includes(f.id))) {
+          biblio.facettes.remplacerRevelations(facette.id, ciblesApres(facette, cibles, masquer), iso())
+        }
+      }
+      if (masquer) return
+      const apres = new Map(fichesCompletes(campagneId).map((f) => [f.id, f]))
+      for (const joueur of joueursDe(campagneId)) {
+        const decouvertes = fusionnes.map(({ ficheId }) => {
+          const vueAvant = vueJoueur(avant.get(ficheId), avant.get(ficheId).facettes, joueur.id)
+          const fiche = apres.get(ficheId)
+          const vueApres = vueJoueur(fiche, fiche.facettes, joueur.id)
+          return aDecouvert(vueAvant, vueApres) ? { fiche, nom: vueApres.nom ?? INCONNUS[fiche.type] } : null
+        }).filter(Boolean)
+        if (!decouvertes.length) continue
+        const premiere = decouvertes[0].fiche
+        notifications.creer({
+          utilisateurId: joueur.id, campagneId, texte: phraseDecouvertes(decouvertes.map((d) => d.nom)),
+          lien: `/campagne/${campagneId}/${CHEMINS[premiere.type]}/${premiere.id}`, categorie: 'revelations', creeLe: iso(),
+        })
+      }
+    })
+  }
+
   return {
     /** Liste des fiches : toutes pour un MJ, seulement ce qui a été révélé pour un joueur. */
     bibliotheque({ demandeurId, campagneId, type = 'pnj' }) {
@@ -322,6 +376,22 @@ export function creerBibliotheque({ db, depots, maintenant, images }) {
         notifierDecouvertes(campagneId, avant, ficheComplete(ficheId, campagneId))
       })
     },
+
+    /** Plusieurs fiches d'un coup : tout ce qui y est rempli, au groupe ou à certains joueurs, ou caché à nouveau. */
+    revelerEnLot({ demandeurId, campagneId, fiches, pourTous, joueurs = [], masquer = false }) {
+      exigerMj(demandeurId, campagneId)
+      exiger(Array.isArray(fiches) && fiches.length > 0 && fiches.length <= 200, erreurs.requeteInvalide('Choisis au moins une fiche.'))
+      const groupes = [...new Set(fiches)].map((ficheId) => {
+        const fiche = ficheComplete(exigerFiche(ficheId, campagneId).id, campagneId)
+        return { ficheId: fiche.id, facetteIds: fiche.facettes.filter((f) => f.valeur !== '').map((f) => f.id) }
+      })
+      revelerDesFacettes(campagneId, groupes, { pourTous, joueurs, masquer })
+    },
+
+    /** Pour le pupitre de séance : les fiches complètes, et la révélation groupée. Jamais exposés tels quels en HTTP. */
+    fichesCompletesDe: fichesCompletes,
+    revelerDesFacettes,
+    joueursDe,
 
     changerIle({ demandeurId, campagneId, ficheId, ile }) {
       exigerMj(demandeurId, campagneId)

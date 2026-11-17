@@ -85,6 +85,15 @@ export const api = {
   supprimerNote: (campagneId, noteId) => appeler('DELETE', `/api/campagnes/${campagneId}/notes/${noteId}`),
   compterCroyance: (campagneId, noteId, lecture) => appeler('POST', `/api/campagnes/${campagneId}/notes/${noteId}/comptage`, { lecture }),
 
+  /** Pupitre de séance : scènes préparées, révélations d'un geste, note au Journal. */
+  scenes: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/scenes`),
+  /** `revelation` : { element (position, ou rien pour toute la scène), pourTous, joueurs } ou { element, masquer: true }. */
+  revelerScene: (campagneId, sceneId, revelation) => appeler('POST', `/api/campagnes/${campagneId}/scenes/${sceneId}/revelation`, revelation),
+  revelerEnLot: (campagneId, fiches, revelation) => appeler('POST', `/api/campagnes/${campagneId}/revelations`, { fiches, ...revelation }),
+  quoiDeNeuf: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/nouveautes`),
+  marquerNouveautesLues: (campagneId) => appeler('POST', `/api/campagnes/${campagneId}/nouveautes/lues`),
+  noterAuJournal: (campagneId, texte) => appeler('POST', `/api/campagnes/${campagneId}/journal`, { texte }),
+
   personnages: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/personnages`),
   creerPersonnage: (campagneId, nom) => appeler('POST', `/api/campagnes/${campagneId}/personnages`, { nom }),
   personnage: (campagneId, personnageId) => appeler('GET', `/api/campagnes/${campagneId}/personnages/${personnageId}`),
@@ -116,6 +125,7 @@ export const api = {
   modifierObjetButin: (campagneId, butinId, objetId, objet) => appeler('PUT', `/api/campagnes/${campagneId}/butins/${butinId}/objets/${objetId}`, objet),
   supprimerObjetButin: (campagneId, butinId, objetId) => appeler('DELETE', `/api/campagnes/${campagneId}/butins/${butinId}/objets/${objetId}`),
   prendreObjet: (campagneId, butinId, objetId, quantite) => appeler('POST', `/api/campagnes/${campagneId}/butins/${butinId}/objets/${objetId}/prise`, { quantite }),
+  prendreMaPart: (campagneId, butinId) => appeler('POST', `/api/campagnes/${campagneId}/butins/${butinId}/part`),
   prendrePieces: (campagneId, butinId, pieces) => appeler('POST', `/api/campagnes/${campagneId}/butins/${butinId}/pieces/prise`, { pieces }),
 
   calendrier: (campagneId) => appeler('GET', `/api/campagnes/${campagneId}/calendrier`),

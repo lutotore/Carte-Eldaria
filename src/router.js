@@ -15,6 +15,7 @@ const routes = [
   { path: '/', name: 'accueil', component: page('PageAccueil'), meta: { connecte: true, titre: 'Mes campagnes' } },
   { path: '/compte', name: 'compte', component: page('PageCompte'), meta: { connecte: true, titre: 'Mon compte' } },
   { path: '/campagne/:id', name: 'carte', component: page('PageCarte'), props: true, meta: { connecte: true, membre: true, titre: 'Carte' } },
+  { path: '/campagne/:id/nouveautes', name: 'nouveautes', component: page('PageNouveautes'), props: true, meta: { connecte: true, membre: true, titre: 'Quoi de neuf' } },
   { path: '/campagne/:id/seances', name: 'seances', component: page('PageSeances'), props: true, meta: { connecte: true, membre: true, titre: 'Séances' } },
   ...RUBRIQUES.flatMap((r) => [
     { path: `/campagne/:id/${r.liste}`, name: r.liste, component: page('PageBibliotheque'), props: (route) => ({ id: route.params.id, type: r.type }), meta: { connecte: true, membre: true, bibliotheque: true, titre: r.titre } },

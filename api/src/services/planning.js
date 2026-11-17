@@ -11,6 +11,7 @@ import { creerDepotsPlanning } from '../infra/depotsPlanning.js'
 const JOUR_MS = 86_400_000
 const LONGUEUR_MAX_LIEU = 120
 const NOTIFICATIONS_AFFICHEES = 20
+const NOTIFICATIONS_DU_FIL = 60
 /** Durées de conservation : à garder alignées sur src/legal.js (politique de confidentialité). */
 export const CONSERVATION_JOURS = { reponses: 30, notificationsLues: 30, notifications: 90 }
 
@@ -256,6 +257,16 @@ export function creerPlanning({ db, depots, maintenant }) {
       const liste = planning.notifications.de(demandeurId, NOTIFICATIONS_AFFICHEES)
         .map(({ lueLe, ...reste }) => ({ ...reste, lue: Boolean(lueLe) }))
       return { nonLues: planning.notifications.nonLues(demandeurId), liste }
+    },
+
+    /** Pour « Quoi de neuf » : les notifications d'une seule campagne. Le portail vérifie l'appartenance. */
+    notificationsDeLaCampagne(utilisateurId, campagneId) {
+      return planning.notifications.deLaCampagne(utilisateurId, campagneId, NOTIFICATIONS_DU_FIL)
+        .map(({ lueLe, ...reste }) => ({ ...reste, lue: Boolean(lueLe) }))
+    },
+
+    marquerLuesDeLaCampagne(utilisateurId, campagneId) {
+      planning.notifications.marquerLuesDeLaCampagne(utilisateurId, campagneId, iso())
     },
 
     marquerNotificationsLues({ demandeurId }) {

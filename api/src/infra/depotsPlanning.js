@@ -74,6 +74,11 @@ export function creerDepotsPlanning(db) {
         FROM notifications WHERE utilisateur_id = ? ORDER BY cree_le DESC, id DESC LIMIT ?`).all(utilisateurId, limite),
       nonLues: (utilisateurId) => requete('SELECT COUNT(*) AS n FROM notifications WHERE utilisateur_id = ? AND lue_le IS NULL').get(utilisateurId).n,
       supprimerCellesDe: (utilisateurId, campagneId) => requete('DELETE FROM notifications WHERE utilisateur_id = ? AND campagne_id = ?').run(utilisateurId, campagneId),
+      deLaCampagne: (utilisateurId, campagneId, limite) => requete(`
+        SELECT id, texte, lien, categorie, cree_le AS creeLe, lue_le AS lueLe FROM notifications
+        WHERE utilisateur_id = ? AND campagne_id = ? ORDER BY cree_le DESC, id DESC LIMIT ?`).all(utilisateurId, campagneId, limite),
+      marquerLuesDeLaCampagne: (utilisateurId, campagneId, le) => requete(`
+        UPDATE notifications SET lue_le = ? WHERE utilisateur_id = ? AND campagne_id = ? AND lue_le IS NULL`).run(le, utilisateurId, campagneId),
       marquerLues: (utilisateurId, le) => requete('UPDATE notifications SET lue_le = ? WHERE utilisateur_id = ? AND lue_le IS NULL').run(le, utilisateurId),
     },
 

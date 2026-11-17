@@ -11,6 +11,7 @@ import { routesMoi } from './routes/moi.js'
 import { routesPersonnages } from './routes/personnages.js'
 import { routesPlanning } from './routes/planning.js'
 import { routesPush } from './routes/push.js'
+import { routesSeance } from './routes/seance.js'
 import { routesSession } from './routes/session.js'
 
 const STATUT_PAR_CODE = {
@@ -120,6 +121,7 @@ export function construireApp({ portail, config }) {
     routesPersonnages(api, portail)
     routesCalendrier(api, portail)
     routesPush(api, portail)
+    routesSeance(api, portail)
   })
 
   return app

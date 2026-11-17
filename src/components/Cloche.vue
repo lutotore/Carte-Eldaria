@@ -3,6 +3,8 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { api } from '../api/client.js'
 
+/** Avec une campagne ouverte, la liste mène aussi au fil complet « Quoi de neuf ». */
+defineProps({ campagneId: { type: Number, default: null } })
 const route = useRoute()
 const ouverte = ref(false)
 const nonLues = ref(0)
@@ -58,16 +60,20 @@ watch(() => route.fullPath, () => { ouverte.value = false; charger() })
           <time :datetime="n.creeLe">{{ quand(n.creeLe) }}</time>
         </li>
       </ul>
+      <RouterLink v-if="campagneId" :to="{ name: 'nouveautes', params: { id: campagneId } }" class="tout-voir">Tout voir dans « Quoi de neuf »</RouterLink>
     </div>
   </div>
 </template>
 
 <style scoped>
 .cloche { position: relative; }
-.bouton-cloche { position: relative; display: inline-flex; background: none; border: 0; padding: 0.2rem; color: #e8d6b0; }
+.bouton-cloche {
+  position: relative; display: inline-grid; place-items: center; min-width: 44px; min-height: 44px;
+  background: none; border: 0; padding: 0; color: #e8d6b0;
+}
 .bouton-cloche:hover { color: var(--laiton-clair); }
 .pastille {
-  position: absolute; top: -0.35rem; right: -0.45rem; min-width: 1.15rem; height: 1.15rem; padding: 0 0.25rem;
+  position: absolute; top: 0.15rem; right: 0.05rem; min-width: 1.15rem; height: 1.15rem; padding: 0 0.25rem;
   border-radius: 999px; background: var(--rouge); color: #f6e7cf; font-size: 0.7rem; font-weight: 700; line-height: 1.15rem; text-align: center;
 }
 .liste { position: absolute; right: 0; top: 2.2rem; z-index: 20; width: min(22rem, calc(100vw - 32px)); padding: 0.4rem 0; max-height: 70vh; overflow-y: auto; }
@@ -77,6 +83,7 @@ watch(() => route.fullPath, () => { ouverte.value = false; charger() })
 .liste li.nouvelle { border-left: 3px solid var(--rouge); padding-left: calc(1rem - 3px); }
 .liste a { color: var(--encre); text-decoration: none; }
 .liste a:hover { text-decoration: underline; }
+.liste .tout-voir { display: block; padding: 0.6rem 1rem 0.3rem; font-weight: 700; color: var(--rouge); }
 .liste time { font-size: var(--t-xs); color: var(--encre-2); }
 /* Sur téléphone, la barre passe sur deux lignes et la cloche se retrouve à gauche. */
 @media (max-width: 700px) { .liste { right: auto; left: 0; } }

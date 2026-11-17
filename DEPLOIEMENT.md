@@ -251,6 +251,46 @@ rm /tmp/chrono.json
 
 N'importe le même fichier qu'une fois : un second import ajouterait les événements en double.
 
+## Importer les scènes du pupitre de séance
+
+Le bouton **Séance en cours** (en haut, pour les MJ) ouvre le pupitre à côté de n'importe quelle page : scène par scène,
+tu révèles d'un geste ce que les joueurs découvrent. Les scènes se préparent dans un fichier de `mj/` :
+
+```json
+{
+  "fiches": [{ "type": "lieu", "nom": "Le Nid des Fileurs", "facettes": { "description": "…" } }],
+  "scenes": [{
+    "titre": "Le Nid des Fileurs", "sousTitre": "Salle 1", "butin": "Session 3 — Le Nid des Fileurs",
+    "elements": [
+      { "type": "lieu", "nom": "Le Nid des Fileurs", "facettes": ["nom", "description"] },
+      { "type": "creature", "nom": "Fileur de brume", "facettes": ["secret:Craint la lumière des Larmes"] },
+      { "type": "objet", "nom": "La pioche de Garrec" }
+    ],
+    "suite": "un seul couloir vers le Carrefour."
+  }]
+}
+```
+
+Chaque élément désigne une fiche de la bibliothèque par son type et son nom exact, et les facettes à révéler
+(`"secret:Titre"` pour un secret précis ; rien = tout ce qui est rempli). Les `fiches` du fichier qui n'existent pas
+encore sont créées, cachées ; celles qui existent déjà sous ce nom ne sont pas touchées. `butin` est le titre d'un butin
+déjà importé (avec `importer-fiches`). Réimporter **remplace** toutes les scènes : on peut corriger et recommencer.
+
+```powershell
+scp mj/butins-session-3.json eldaria:/tmp/butins.json
+scp mj/scenes-session-3.json eldaria:/tmp/scenes.json
+```
+
+```bash
+cd /opt/eldaria
+docker compose exec -T api npm run -s cli -- importer-fiches 1 < /tmp/butins.json
+docker compose exec -T api npm run -s cli -- importer-scenes 1 < /tmp/scenes.json
+rm /tmp/butins.json /tmp/scenes.json
+```
+
+La commande signale chaque fiche ou butin introuvable (nom mal orthographié) ; l'élément est alors ignoré.
+Les butins, eux, s'ajoutent à chaque import : n'importe `butins-session-3.json` qu'une fois.
+
 ## Importer les règles d'un livre (montée de niveau)
 
 Le site connaît d'office les règles du SRD (12 classes, une sous-classe chacune, le don Lutteur).

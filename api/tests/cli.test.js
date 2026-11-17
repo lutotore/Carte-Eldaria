@@ -67,6 +67,20 @@ describe('ligne de commande du serveur', () => {
     expect(portail.bibliotheque({ demandeurId: tomId, campagneId }).fiches.map((f) => f.nom)).toEqual(['Mila'])
   })
 
+  it('importe les scènes du pupitre et signale ce qui manque', async () => {
+    const { portail } = portailDeTest()
+    const { campagneId, tomId } = await campagneAvecProprietaire(portail)
+    const fichier = JSON.stringify({
+      fiches: [{ type: 'lieu', nom: 'Le Nid des Fileurs' }],
+      scenes: [{ titre: 'Le Nid', elements: [{ type: 'lieu', nom: 'Le Nid des Fileurs' }, { type: 'pnj', nom: 'Personne' }] }],
+    })
+    const sortie = await lancer(portail, ['importer-scenes', String(campagneId), 'scenes.json'], '', { 'scenes.json': fichier })
+    expect(sortie).toMatch(/1 scène\(s\) importée\(s\)/)
+    expect(sortie).toMatch(/1 fiche\(s\) créée\(s\)/)
+    expect(sortie).toMatch(/Introuvable : pnj « Personne »/)
+    expect(portail.scenes({ demandeurId: tomId, campagneId }).scenes.map((s) => s.titre)).toEqual(['Le Nid'])
+  })
+
   it('importe une chronologie depuis un fichier, toute cachée', async () => {
     const { portail } = portailDeTest()
     const { campagneId, tomId } = await campagneAvecProprietaire(portail)

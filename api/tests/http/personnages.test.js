@@ -113,6 +113,8 @@ describe('butins par HTTP', () => {
     const vue = (await appel(cookieLea, 'GET', '/butins')).json().butins[0]
     expect(vue).not.toHaveProperty('notesMj')
     expect(vue.pieces.po).toBe(6)
+    expect((await appel(cookieLea, 'POST', `/butins/${butinId}/part`)).statusCode).toBe(400)
+    expect(vue.part).toMatchObject({ prise: true })
   })
 
   it('refuse aux joueurs de préparer un butin', async () => {

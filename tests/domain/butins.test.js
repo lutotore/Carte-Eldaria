@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { additionner, erreurButin, erreurMarque, erreurObjetButin, erreurPrisePieces, retirer, STATUTS_BUTIN } from '../../src/domain/butins.js'
+import { additionner, erreurButin, erreurMarque, erreurObjetButin, erreurPrisePieces, partDesPieces, retirer, STATUTS_BUTIN } from '../../src/domain/butins.js'
 
 const bourse = (x = {}) => ({ pp: 0, po: 0, pe: 0, pa: 0, pc: 0, ...x })
 
@@ -36,6 +36,23 @@ describe('prendre des pièces', () => {
   it('passe les pièces du butin à la bourse', () => {
     expect(retirer(bourse({ po: 20, pa: 5 }), bourse({ po: 5, pa: 5 }))).toEqual(bourse({ po: 15 }))
     expect(additionner(bourse({ po: 3 }), bourse({ po: 5, pc: 2 }))).toEqual(bourse({ po: 8, pc: 2 }))
+  })
+})
+
+describe('prendre sa part', () => {
+  const bourse = (x = {}) => ({ pp: 0, po: 0, pe: 0, pa: 0, pc: 0, ...x })
+
+  it('partage ce qui reste entre ceux qui ne se sont pas encore servis, à l’arrondi inférieur', () => {
+    expect(partDesPieces(bourse({ po: 40 }), 8)).toEqual(bourse({ po: 5 }))
+    expect(partDesPieces(bourse({ po: 41, pa: 3 }), 8)).toEqual(bourse({ po: 5 }))
+  })
+
+  it('donne tout le reste au dernier, pour que rien ne se perde', () => {
+    expect(partDesPieces(bourse({ po: 6, pa: 3 }), 1)).toEqual(bourse({ po: 6, pa: 3 }))
+  })
+
+  it("n'existe plus quand tout le monde s'est servi", () => {
+    expect(partDesPieces(bourse({ po: 6 }), 0)).toBeNull()
   })
 })
 

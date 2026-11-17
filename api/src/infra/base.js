@@ -363,6 +363,26 @@ export const MIGRATIONS = [
   );
   CREATE INDEX regles_elements_livre ON regles_elements(livre);
   `,
+  // 11 — pupitre de séance : scènes préparées, chacune ce qu'on révèle d'un geste (voir src/domain/scenes.js).
+  `
+  CREATE TABLE scenes (
+    id          INTEGER PRIMARY KEY,
+    campagne_id INTEGER NOT NULL REFERENCES campagnes(id) ON DELETE CASCADE,
+    ordre       INTEGER NOT NULL,
+    titre       TEXT NOT NULL,
+    sous_titre  TEXT NOT NULL DEFAULT '',
+    suite       TEXT NOT NULL DEFAULT '',
+    -- [{ ficheId, facettes: ["nom", "secret:Faiblesse"] }] ; une fiche supprimée est ignorée à la lecture.
+    elements    TEXT NOT NULL DEFAULT '[]',
+    butin_id    INTEGER REFERENCES butins(id) ON DELETE SET NULL,
+    cree_le     TEXT NOT NULL
+  );
+  CREATE INDEX scenes_campagne ON scenes (campagne_id, ordre);
+  `,
+  // 12 — butin simplifié : une prise de pièces compte comme « servi » pour le partage en parts égales.
+  `
+  ALTER TABLE butin_prises ADD COLUMN pieces INTEGER NOT NULL DEFAULT 0 CHECK (pieces IN (0, 1));
+  `,
 ]
 
 export function ouvrirBase(chemin) {

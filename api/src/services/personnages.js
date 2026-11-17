@@ -1,5 +1,5 @@
 import {
-  additionner, erreurButin, erreurMarque, erreurObjetButin, erreurPrisePieces, STATUTS_BUTIN,
+  additionner, erreurButin, erreurMarque, erreurObjetButin, erreurPrisePieces, partDesPieces, STATUTS_BUTIN,
 } from '../../../src/domain/butins.js'
 import { calculs, erreurBourse, erreurChamps, erreurLigne, ficheVierge, PIECES } from '../../../src/domain/personnage.js'
 import { creerCatalogue } from '../../../src/domain/regles/catalogue.js'
@@ -142,11 +142,33 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
       ...(pourMj ? { notesMj } : {}),
       objets: persos.objetsButin.du(butin.id).map(({ ficheId, ...o }) => ({ ...o, objet: ficheId ? objet(ficheId) : null })),
       prises: persos.prises.du(butin.id),
+      part: partDe(butin, lecteurId),
     }
   }
 
-  function noterPrise(butinId, demandeurId, texte) {
-    persos.prises.creer({ butinId, utilisateurId: demandeurId, texte: `${depots.utilisateurs.parId(demandeurId).identifiant} prend ${texte}`, le: iso() })
+  /**
+   * Le partage en parts égales : une part par fiche de personnage de la campagne.
+   * Qui a déjà pris des pièces (sa part, ou à la main) est servi ; le reste se divise entre les autres.
+   */
+  function partDe(butin, lecteurId) {
+    const servis = persos.prises.servis(butin.id)
+    const fiches = persos.personnages.deLaCampagne(butin.campagneId)
+    const nomDe = (utilisateurId) => fiches.find((f) => f.utilisateurId === utilisateurId)?.fiche.nom ?? 'un ancien membre'
+    return {
+      montant: partDesPieces(butin.pieces, Math.max(0, fiches.length - servis.length)),
+      prise: servis.includes(lecteurId),
+      servis: servis.map(nomDe),
+    }
+  }
+
+  function noterPrise(butinId, demandeurId, texte, { pieces = false } = {}) {
+    persos.prises.creer({ butinId, utilisateurId: demandeurId, texte: `${depots.utilisateurs.parId(demandeurId).identifiant} prend ${texte}`, le: iso(), pieces })
+  }
+
+  function mettreEnBourse(butin, personnage, demande) {
+    exiger(!erreurBourse(additionner(personnage.bourse, demande)), erreurs.requeteInvalide('Ta bourse ne peut pas contenir autant de pièces.'))
+    persos.butins.retirerPieces(butin.id, demande)
+    persos.personnages.ajouterPieces(personnage.id, demande, iso())
   }
 
   function importerUnButin(campagneId, donnees, objetsParNom) {
@@ -435,10 +457,20 @@ export function creerPersonnages({ db, depots, maintenant, bibliotheque, catalog
         const { butin, personnage } = exigerPrisePossible(demandeurId, campagneId, butinId)
         const demande = bourseSeule(pieces)
         exigerSansErreur(erreurPrisePieces(butin.pieces, demande))
-        exiger(!erreurBourse(additionner(personnage.bourse, demande)), erreurs.requeteInvalide('Ta bourse ne peut pas contenir autant de pièces.'))
-        persos.butins.retirerPieces(butin.id, demande)
-        persos.personnages.ajouterPieces(personnage.id, demande, iso())
-        noterPrise(butin.id, demandeurId, decrirePieces(demande))
+        mettreEnBourse(butin, personnage, demande)
+        noterPrise(butin.id, demandeurId, decrirePieces(demande), { pieces: true })
+      })
+    },
+
+    /** « Prendre ma part » : la part égale du joueur, calculée par le serveur, en un geste. */
+    prendreMaPart({ demandeurId, campagneId, butinId }) {
+      transaction(db, () => {
+        const { butin, personnage } = exigerPrisePossible(demandeurId, campagneId, butinId)
+        const { montant, prise } = partDe(butin, demandeurId)
+        exiger(!prise, erreurs.requeteInvalide('Tu as déjà pris ta part de ce butin.'))
+        exiger(montant && !erreurPrisePieces(butin.pieces, montant), erreurs.requeteInvalide('Il ne reste plus de pièces à partager.'))
+        mettreEnBourse(butin, personnage, montant)
+        noterPrise(butin.id, demandeurId, `sa part : ${decrirePieces(montant)}`, { pieces: true })
       })
     },
 

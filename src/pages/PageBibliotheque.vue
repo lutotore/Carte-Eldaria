@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { api } from '../api/client.js'
 import Portrait from '../components/bibliotheque/Portrait.vue'
+import { FILTRES_REVELATION, garderSelon } from '../components/bibliotheque/revelation.js'
 import { RUBRIQUES, rubriqueDe } from '../components/bibliotheque/rubriques.js'
 import { utiliserEnvoi } from '../composables/envoi.js'
 import { ATTITUDES, valeurLisible } from '../domain/fiches.js'
@@ -20,6 +21,12 @@ const recherche = ref('')
 const attitude = ref('')
 const ile = ref('')
 const nouveauNom = ref('')
+const filtreRevelation = ref('')
+const selection = ref([])
+const aCertains = ref(false)
+const choisis = ref([])
+const joueurs = ref([])
+const fait = ref('')
 const { enCours, erreur, envoyer } = utiliserEnvoi()
 
 /** Chargement hors de `envoyer` : un changement d'onglet ne doit jamais être ignoré, ni afficher la mauvaise liste. */
@@ -33,7 +40,11 @@ async function charger() {
   }
 }
 onMounted(charger)
-watch(() => props.type, () => { donnees.value = null; recherche.value = ''; attitude.value = ''; ile.value = ''; charger() })
+watch(() => props.type, () => {
+  donnees.value = null; recherche.value = ''; attitude.value = ''; ile.value = ''; filtreRevelation.value = ''
+  selection.value = []; aCertains.value = false; fait.value = ''
+  charger()
+})
 
 const LIBELLES_REVELATION = { cache: 'Caché', partiel: 'En partie révélé', revele: 'Révélé' }
 
@@ -58,10 +69,38 @@ const iles = computed(() => {
 const fiches = computed(() => {
   if (!donnees.value) return []
   const texte = recherche.value.trim().toLocaleLowerCase('fr')
-  return donnees.value.fiches.map(resume).filter((f) => (!attitude.value || f.attitude === attitude.value)
+  const visibles = donnees.value.estMj ? garderSelon(donnees.value.fiches, filtreRevelation.value) : donnees.value.fiches
+  return visibles.map(resume).filter((f) => (!attitude.value || f.attitude === attitude.value)
     && (!ile.value || f.ile === ile.value)
     && (!texte || `${f.nom ?? ''} ${f.role ?? ''}`.toLocaleLowerCase('fr').includes(texte)))
 })
+
+// --- Révélation par lots (MJ) : cocher des fiches, puis tout révéler d'un geste ---
+const nombreChoisi = computed(() => selection.value.length)
+const libelleSelection = computed(() => (nombreChoisi.value > 1 ? `${nombreChoisi.value} fiches sélectionnées` : '1 fiche sélectionnée'))
+const toutSelectionner = () => { selection.value = fiches.value.map((f) => f.id) }
+const deselectionner = () => { selection.value = []; aCertains.value = false; choisis.value = [] }
+
+/** Les joueurs de la campagne, pour « À certains… » : le pupitre de séance les fournit déjà. */
+async function chargerJoueurs() {
+  if (joueurs.value.length) return
+  joueurs.value = (await api.scenes(props.id)).joueurs
+}
+const ouvrirACertains = () => envoyer(async () => {
+  await chargerJoueurs()
+  aCertains.value = !aCertains.value
+})
+
+const revelerSelection = (revelation, message) => envoyer(async () => {
+  fait.value = ''
+  await api.revelerEnLot(props.id, selection.value, revelation)
+  await charger()
+  deselectionner()
+  fait.value = message
+})
+const auGroupe = () => revelerSelection({ pourTous: true, joueurs: [] }, 'Révélé au groupe.')
+const aCeuxChoisis = () => revelerSelection({ pourTous: false, joueurs: choisis.value }, 'Révélé aux joueurs choisis.')
+const cacher = () => revelerSelection({ masquer: true }, 'Caché à nouveau.')
 
 const creer = () => envoyer(async () => {
   const { ficheId } = await api.creerFiche(props.id, nouveauNom.value, props.type)
@@ -99,11 +138,33 @@ const creer = () => envoyer(async () => {
       </form>
     </div>
 
+    <div v-if="donnees?.estMj" class="filtres" role="group" aria-label="Filtrer selon ce que les joueurs savent">
+      <button v-for="f in FILTRES_REVELATION" :key="f.cle" type="button" class="puce" :aria-pressed="filtreRevelation === f.cle" @click="filtreRevelation = f.cle">{{ f.nom }}</button>
+    </div>
+
+    <div v-if="donnees?.estMj && nombreChoisi" class="selection" role="toolbar" aria-label="Actions sur la sélection">
+      <strong>{{ libelleSelection }}</strong>
+      <button type="button" class="action action--vert" :disabled="enCours" @click="auGroupe">Révéler au groupe</button>
+      <button type="button" class="action" :disabled="enCours" :aria-expanded="aCertains" @click="ouvrirACertains">À certains…</button>
+      <button type="button" class="action" :disabled="enCours" @click="cacher">Cacher</button>
+      <button type="button" class="lien" @click="toutSelectionner">Tout sélectionner</button>
+      <button type="button" class="lien" @click="deselectionner">Tout désélectionner</button>
+      <form v-if="aCertains" class="certains" @submit.prevent="aCeuxChoisis">
+        <fieldset>
+          <legend>Révéler à</legend>
+          <label v-for="j in joueurs" :key="j.id"><input v-model="choisis" type="checkbox" :value="j.id"> {{ j.identifiant }}</label>
+        </fieldset>
+        <button type="submit" class="action action--vert" :disabled="enCours || !choisis.length">Révéler</button>
+      </form>
+    </div>
+
     <p v-if="erreur" class="message message--erreur" role="alert">{{ erreur }}</p>
+    <p v-else-if="fait" class="fait" role="status">{{ fait }}</p>
     <p v-if="donnees && !donnees.fiches.length" class="vide">{{ donnees.estMj ? textes.videMj : textes.videJoueur }}</p>
 
     <ul class="grille">
-      <li v-for="f in fiches" :key="f.id">
+      <li v-for="f in fiches" :key="f.id" class="case" :class="{ 'case--mj': donnees.estMj, choisie: selection.includes(f.id) }">
+        <input v-if="donnees.estMj" v-model="selection" type="checkbox" class="cocher" :value="f.id" :aria-label="`Sélectionner ${f.nom ?? textes.inconnu}`">
         <RouterLink :to="{ name: textes.fiche, params: { id, ficheId: f.id } }" class="carte papier">
           <Portrait :campagne-id="id" :image-id="f.portrait" :nom="f.nom ?? ''" :genre="type" />
           <div class="texte">
@@ -134,6 +195,33 @@ h1 { font-size: clamp(2rem, 5vw, 2.8rem); color: var(--laiton-clair); text-shado
 .nouveau { display: flex; gap: 0.5rem; align-items: flex-end; margin-left: auto; }
 .vide { color: #cdb48c; font-style: italic; margin: 0; }
 .grille { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 1rem; }
+.case { position: relative; }
+.case--mj .carte { padding-right: 2.6rem; }
+.case.choisie .carte { outline: 3px solid var(--laiton); }
+.cocher { position: absolute; top: 0.6rem; right: 0.6rem; z-index: 1; width: 24px; height: 24px; margin: 0; accent-color: var(--vert); }
+.filtres { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.puce {
+  min-height: 40px; padding: 0 0.9rem; border-radius: 20px; border: 1px solid var(--couture);
+  background: transparent; color: #e8d6b0; font: inherit; cursor: pointer;
+}
+.puce[aria-pressed='true'] { background: var(--laiton-clair); border-color: var(--laiton-clair); color: var(--cuir); font-weight: 700; }
+.selection {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+  padding: 0.6rem 0.9rem; border-radius: 4px; background: var(--cuir-2); border: 1px solid var(--laiton);
+}
+.selection strong { color: var(--laiton-clair); }
+.action {
+  min-height: 44px; padding: 0 0.9rem; border-radius: 4px; border: 1px solid var(--couture);
+  background: transparent; color: #e8d6b0; font: inherit; font-weight: 500; cursor: pointer;
+}
+.action--vert { border-color: var(--vert); background: var(--vert); color: #f6ecd4; font-weight: 700; }
+.action:disabled { opacity: 0.5; cursor: not-allowed; }
+.lien { min-height: 44px; padding: 0 0.3rem; border: 0; background: none; color: #cdb48c; font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.certains { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; }
+.certains fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-wrap: wrap; gap: 0.2rem 1rem; color: #e8d6b0; }
+.certains legend { float: left; margin-right: 0.6rem; color: #cdb48c; }
+.certains label { min-height: 44px; display: inline-flex; align-items: center; gap: 0.35rem; }
+.fait { margin: 0; color: var(--laiton-clair); }
 .carte { display: flex; gap: 0.9rem; padding: 0.9rem; text-decoration: none; color: var(--encre); height: 100%; transition: transform 0.15s ease; }
 .carte:hover { transform: rotate(-0.4deg) translateY(-2px); }
 .texte { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
